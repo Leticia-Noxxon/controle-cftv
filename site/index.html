@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Controle de CFTV</title>
+  <meta name="description" content="Situação das câmeras de CFTV da frota, matriz diária por prefixo, problemas em aberto e manutenções." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='3' fill='%236366F1'/><circle cx='8' cy='8' r='3' fill='white'/></svg>" />
+</head>
+<body>
+  <header class="topo">
+    <div class="marca"><span class="logo" aria-hidden="true"></span><div><strong>Controle de CFTV</strong><small id="subtitulo">carregando dados…</small></div></div>
+    <nav id="menu" class="menu" aria-label="Seções"></nav>
+    <div class="acoes-topo">
+      <button id="btn-tema" class="btn-icone" title="Alternar tema claro/escuro" aria-label="Alternar tema">◐</button>
+      <button id="btn-imprimir" class="btn-icone" title="Imprimir / salvar em PDF" aria-label="Imprimir">⎙</button>
+    </div>
+  </header>
+  <section id="filtros" class="filtros" aria-label="Filtros"></section>
+  <main id="conteudo"><p class="carregando">Carregando dados…</p></main>
+  <aside id="painel" class="painel" aria-hidden="true"><button class="fechar" id="painel-fechar" aria-label="Fechar">×</button><div id="painel-corpo"></div></aside>
+  <div id="tooltip" class="tooltip" role="tooltip"></div>
+  <footer class="rodape" id="rodape"></footer>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

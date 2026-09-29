@@ -1,0 +1,5 @@
+0735c1eb4a90f5f4d3cbd8a29e4343e297854e6d5289fe5af6be514a18a2d05f  data/raw/Relatório CFTV - 28.09.2026.xlsx
+eb12db05c55ee22ce4c13bc41a2c16da73d9051f82c056164c817e0e084b471b  data/raw/Revisão_CFTV2026-09-11_13_40_20.xlsx
+58a43c9f067cf873e9a772ed8a595de98e94a397ae4bc7eb46dea4141f66b5ba  data/raw/bq-results-20260928-132402-1790601858542.csv
+af8e6163dbeaace9ecc8c8b945d3ff9c0cb8fff4c7bf7b7457aa9cd8a13d060e  data/raw/bq-results-20260928-132836-1790602131240.csv
+5d9ead103ef1989dc0fdc70be5d741b4fda26ec40bdeee437d6d3b45025fd5cd  docs/_contexto/01 Identificação.docx
