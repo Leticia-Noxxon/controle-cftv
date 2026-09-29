@@ -140,9 +140,9 @@ def avaliar(g, e, prox, fim_dados):
     if antes.empty:
         ini, fim = g.ts_local.min(), g.ts_local.max()
         if t0 <= ini:
-            mot = f'visita anterior ao início do monitoramento deste prefixo ({_fmt(ini)})'
+            mot = f'visita anterior ao início do monitoramento deste prefixo ({ini:%d/%m/%Y %H:%M})'
         elif t0 - pd.Timedelta(hours=config.JANELA_ANTES_H) > fim:
-            mot = f'visita posterior ao fim do monitoramento deste prefixo ({_fmt(fim)})'
+            mot = f'visita posterior ao fim do monitoramento deste prefixo ({fim:%d/%m/%Y %H:%M})'
         else:
             mot = f"sem registros do monitoramento nas {config.JANELA_ANTES_H} h anteriores à visita"
         r.update({'precisava': 'Sem dados', 'resultado': 'Sem dados para avaliar', 'motivo': mot})
