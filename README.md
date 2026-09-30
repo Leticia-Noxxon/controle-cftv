@@ -52,12 +52,33 @@ Filtros Empresa (com a opção METROPOLE), Câmera e Período (afetam tudo).
   - *Resolvidos (sem recorrência)* = dos que precisavam, a última visita necessária foi classificada como **Resolvido** (todas as câmeras com problema antes voltaram ao normal depois da visita e não falharam de novo até a próxima visita ou o fim dos dados). “Resolvido com recorrência” **não** conta.
   - Filtros: Período pela data da visita; Câmera = visitas que citam a câmera; Empresa = empresa do prefixo no monitoramento (visitas de prefixos fora do monitoramento saem quando há filtro de empresa).
 
-## Versão visual alternativa (v2)
+## Versão v2 (layout alternativo)
 
-https://leticia-noxxon.github.io/controle-cftv/v2/ tem os mesmos dados, funções e significado de cores da versão principal, só com o estilo visual do "Property Management Dashboard UI Kit" (Paperpillar): painel claro arredondado, barra lateral em pílula (Monitoramento / Estatísticas), cards brancos com ícone em círculo suave, fontes Plus Jakarta Sans + Inter.
-- Código em `site/v2/` (cópia de `site/src` com `style.css` próprio), compilado à parte por `vite.v2.config.js` em `dist/v2/`; `npm run build` gera as duas versões e a versão principal não muda.
-- A v2 lê os mesmos arquivos de `data/` da raiz (`../data/`).
-- Validação: `python tests/capturas_v2.py http://localhost:4174/v2/ local_v2`.
+https://leticia-noxxon.github.io/controle-cftv/v2/ usa o estilo do "Property Management Dashboard UI Kit" (Paperpillar) e os mesmos dados da versão principal (`../data/`). A versão principal não muda.
+
+- **Tela fixa (100dvh):** a página nunca rola, só as áreas internas (corpo das tabelas, painel, modais). A barra lateral tem duas abas, com dica ao passar o mouse, focar ou tocar e segurar. No celular ela vai para baixo, e a Visão geral alterna Tabela/Gráfico.
+- **Garagem/Empresa:** a garagem de cada veículo é a empresa do registro mais recente do prefixo, normalizada pelas tabelas `MAPA_EMPRESA` e `MAPA_FORMULARIO` em `site/v2/src/dados.js`. Não existe "Não informado". Via Sudeste Cursino e Sapopemba viram "Via Sudeste". O filtro mantém "METROPOLE (todas)".
+- **Rótulos:** Funcional, 100% Offline, Erro de SD card e/ou 1+ câmera com problema, Sem conexão.
+- **Aba Visão geral:**
+  - 4 cards; clicar num card filtra a tabela e o gráfico.
+  - Tabela por Garagem/Empresa, pelo último registro de cada câmera no período:
+    - alterna Veículo | Câmera;
+    - colunas ordenáveis e linha Total;
+    - exporta a visão atual para Excel;
+    - o botão Manutenção acrescenta Veículos atendidos, Reincidências, Atendimentos procedentes, Ocorrências solucionadas e Atendimentos improcedentes;
+    - clicar numa linha abre o detalhe da garagem: veículos e, ao clicar num deles, linha do tempo e manutenção.
+  - Gráfico "Evolução diária" com Funcional, 1+ câmera com problema e 100% Offline por dia.
+- **Aba Matriz:**
+  - Filtros Empresa/Garagem, Câmera e Mês (padrão: o mês mais recente).
+  - A matriz ocupa a altura toda, com rolagem virtual, ponto azul de manutenção e painel de detalhe.
+  - O botão **OS** gera a Ordem de Serviço em .xlsx no navegador (ExcelJS, carregado só na hora).
+- **Prioridade da OS:**
+  1. Mais dias com problema. É a sequência atual de dias com offline/erro de SD da câmera com o problema mais longo, contada do último dia com registro para trás. Um dia sem registro não interrompe nem conta; um dia 100% funcional encerra a sequência.
+  2. Empate: 100% offline antes de parcial.
+  3. Empate: mais câmeras afetadas.
+- **`site/v2/public/os.json`:** gerado por `scripts/gerar_v2_os.py`, que roda no fim de `atualizar_dados.py`. Guarda o último registro (data/hora) e o nº de mudanças de estado nos últimos 7 dias por prefixo e câmera.
+- **Build:** `npm run build` gera a raiz e depois `dist/v2/` (`vite.v2.config.js`).
+- **Validação:** `python tests/capturas_v2.py http://localhost:4174/v2/ local_v2`. Confere 1920×1080, 1366×768, 1024×768 e 390×844 sem rolagem e gera `docs/OS_exemplo.xlsx`.
 
 ## Garagem
 - Fontes: formulário de manutenção (`Revisão_CFTV…`, coluna Garagem) e, **só para garagem**, as exportações Jotform em `data/raw/garagens/`: `jotform_responses.xlsx` (de `C:\Automação Jotform\data\`, abas registro_de_configuracao, revisao_tecnica, revisao_cftv e gerenciamento_de_servico, 07/2025 a 09/2026) e `Revisão_CFTV2026-09-30_07_52_29.xlsx` (Downloads). Elas ficam fora de `data/raw/` para não trocar o formulário usado nas manutenções.

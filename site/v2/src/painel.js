@@ -1,52 +1,57 @@
-// Painel de detalhe: prefixo + data, câmeras, métricas do dia, linha do tempo e manutenção.
-import { D, detalhe, estadoDia, camNome, diaSemana, dmy, dur, hhmm, fmtP, esc, ICONE } from './dados.js';
+// Painel de detalhe do veículo: prefixo + data, câmeras, métricas do dia, linha do tempo e manutenção.
+// Pode ser aberto na Matriz (ao lado da tabela) ou no detalhe da garagem (dentro do modal).
+import { D, detalhe, estadoDia, camNome, diaSemana, dmy, dur, hhmm, fmtP, esc, ICONE, ROTULO_CURTO } from './dados.js';
 
 const COR = { N: 'var(--on)', F: 'var(--fa)', O: 'var(--off)', S: 'var(--nd)' };
-const NOME = { N: 'Online', F: 'Falha', O: 'Offline', S: 'Sem dados' };
-const BADGE = { on: ['b-on', 'Online'], off: ['b-off', 'Offline'], fa: ['b-fa', 'Falha'], nd: ['b-nd', 'Sem dados'] };
+const NOME = { N: 'Funcional', F: 'Erro de SD card', O: 'Offline', S: 'Sem conexão' };
+const BADGE = { on: ['b-on', ROTULO_CURTO.on], off: ['b-off', ROTULO_CURTO.off], fa: ['b-fa', ROTULO_CURTO.fa], nd: ['b-nd', ROTULO_CURTO.nd] };
 const estadoCod = (x) => (x === 'N' ? 'N' : x === 'O' ? 'O' : 'F');
 let atual = null;
 
 export const painelAberto = () => !!atual;
 
+// host = { box, area (recebe .com-painel), fundo (gaveta < 1024 px), navDia (setas de dia anterior/próximo) }
 export function fecharPainel() {
-  const box = document.getElementById('p1-painel');
-  if (!box) { atual = null; return; }
-  box.classList.add('oculto'); box.innerHTML = '';
-  document.getElementById('p1-area')?.classList.remove('com-painel');
-  document.getElementById('p1-fundo')?.classList.remove('ativo');
-  const cb = atual?.aoFechar; atual = null;
+  if (!atual) return;
+  const { host } = atual;
+  host.box.classList.add('oculto'); host.box.innerHTML = '';
+  host.area?.classList.remove('com-painel');
+  host.fundo?.classList.remove('ativo');
+  const cb = atual.aoFechar; atual = null;
   if (cb) cb();
 }
 
-export function abrirPainel(p, i, camFiltro, aoFechar) {
+const camPadrao = (v, i, camFiltro) => (camFiltro ? Number(camFiltro) : (v.c.find((c) => ['off', 'fa'].includes(estadoDia(v, i, String(c)))) ?? v.c[0]));
+
+export function abrirPainel(host, p, i, camFiltro, aoFechar) {
   const v = D.porPrefixo.get(p);
-  const camPadrao = camFiltro ? Number(camFiltro)
-    : (v.c.find((c) => ['off', 'fa'].includes(estadoDia(v, i, String(c)))) ?? v.c[0]);
-  atual = { p, i, cam: camPadrao, aoFechar };
-  const box = document.getElementById('p1-painel');
-  box.classList.remove('oculto');
-  document.getElementById('p1-area').classList.add('com-painel');
-  if (window.innerWidth < 1024) document.getElementById('p1-fundo').classList.add('ativo');
+  atual = { host, p, i, cam: camPadrao(v, i, camFiltro), camFiltro, aoFechar };
+  host.box.classList.remove('oculto');
+  host.area?.classList.add('com-painel');
+  if (window.innerWidth < 1024) host.fundo?.classList.add('ativo');
   desenhar();
 }
 
 async function desenhar() {
-  const { p, i, cam } = atual;
+  const { p, i, cam, host } = atual;
   const v = D.porPrefixo.get(p);
   const dia = D.dias[i];
-  const box = document.getElementById('p1-painel');
+  const box = host.box;
+  const nav = host.navDia ? `<div class="nav-dia"><button class="fechar" id="pn-ant" aria-label="Dia anterior" ${i <= 0 ? 'disabled' : ''}>${ICONE.esq}</button><button class="fechar" id="pn-prox" aria-label="Próximo dia" ${i >= D.nd - 1 ? 'disabled' : ''}>${ICONE.dir}</button></div>` : '';
   const cams = v.c.map((c) => {
     const [cls, txt] = BADGE[estadoDia(v, i, String(c))];
     return `<button class="cam-b ${c === cam ? 'sel' : ''}" data-c="${c}"><span>${esc(camNome(c))}</span><span class="badge ${cls}">${txt}</span></button>`;
   }).join('');
   const evs = (v.mv[i] || []).map((k) => D.manut.get(k)).filter(Boolean);
   box.innerHTML = `<div class="painel" role="dialog" aria-label="Detalhe do prefixo ${p}">
-    <div class="cab-p"><div><h2>Prefixo ${p}</h2><div class="sub">${diaSemana(dia)}, ${dmy(dia)} · ${esc(v.empresa)} · ${esc(v.garagem)}</div></div><button class="fechar" id="pn-fechar" aria-label="Fechar">${ICONE.x}</button></div>
+    <div class="cab-p"><div><h2>Prefixo ${p}</h2><div class="sub">${diaSemana(dia)}, ${dmy(dia)} · ${esc(v.garagem)}${v.empresa !== v.garagem ? ` <span class="muted">(${esc(v.empresa)})</span>` : ''}</div></div><div class="cab-acoes">${nav}<button class="fechar" id="pn-fechar" aria-label="Fechar">${ICONE.x}</button></div></div>
     <div class="sec"><h3>Câmeras</h3><div class="cams">${cams}</div></div>
     <div class="sec" id="pn-dia"><h3>${esc(camNome(cam))}</h3><div class="sub">Carregando registros…</div></div>
     <div class="sec"><h3>Manutenção</h3>${evs.length ? evs.map(blocoManut).join('') : '<div class="sub">Sem manutenção registrada nesta data.</div>'}</div></div>`;
   box.querySelector('#pn-fechar').onclick = fecharPainel;
+  const mudaDia = (d) => { atual.i = Math.max(0, Math.min(D.nd - 1, atual.i + d)); atual.cam = camPadrao(v, atual.i, atual.camFiltro); desenhar(); };
+  box.querySelector('#pn-ant')?.addEventListener('click', () => mudaDia(-1));
+  box.querySelector('#pn-prox')?.addEventListener('click', () => mudaDia(1));
   box.querySelectorAll('.cam-b').forEach((b) => b.addEventListener('click', () => { atual.cam = Number(b.dataset.c); desenhar(); }));
   const det = await detalhe(p);
   if (!atual || atual.p !== p || atual.i !== i || atual.cam !== cam) return;
@@ -76,7 +81,7 @@ function intervalosDia(trechos) {
 
 function notaCobertura(i) {
   const c = D.cobertura?.[i];
-  return c && c.horas < 24 ? `<div class="sub" style="margin-top:8px">Dia parcial na extração: dados de ${c.inicio.slice(11, 16)} a ${c.fim.slice(11, 16)}. O restante aparece como Sem dados.</div>` : '';
+  return c && c.horas < 24 ? `<div class="sub" style="margin-top:8px">Dia parcial na extração: dados de ${c.inicio.slice(11, 16)} a ${c.fim.slice(11, 16)}. O restante aparece como Sem conexão.</div>` : '';
 }
 
 function blocoDia(trechos) {
@@ -85,7 +90,7 @@ function blocoDia(trechos) {
   iv.forEach((x) => { tot[x.e] += (x.b - x.a) / 60; });
   const mon = tot.N + tot.F + tot.O;
   const m = (r, val, cls = '') => `<div class="${cls}"><div class="m-r">${r}</div><div class="m-v">${val}</div></div>`;
-  return `<div class="metricas">${m('Disponibilidade do dia', mon ? fmtP((100 * tot.N) / mon) : '—', 'larga')}${m('Online', dur(tot.N))}${m('Offline', dur(tot.O))}${m('Falha (SD)', dur(tot.F))}${m('Sem dados', dur(tot.S))}</div>
+  return `<div class="metricas">${m('Disponibilidade do dia', mon ? fmtP((100 * tot.N) / mon) : '—', 'larga')}${m('Funcional', dur(tot.N))}${m('Offline', dur(tot.O))}${m('Erro de SD card', dur(tot.F))}${m('Sem conexão', dur(tot.S))}</div>
     <div class="barra-tl" style="margin-top:12px">${iv.map((x) => `<i style="left:${(100 * x.a) / 86400}%;width:${(100 * (x.b - x.a)) / 86400}%;background:${COR[x.e]}" title="${hhmm(x.a)}–${hhmm(x.b)} · ${NOME[x.e]}"></i>`).join('')}</div>
     <div class="eixo"><span>00h</span><span>06h</span><span>12h</span><span>18h</span><span>24h</span></div>
     <div class="intervalos">${iv.map((x) => `<div class="iv" title="${x.n ? `${x.n} registro(s)` : 'Sem registros'}"><i style="background:${COR[x.e]}"></i><span>${hhmm(x.a)}–${x.b >= 86400 ? '24:00' : hhmm(x.b)}</span><span>${NOME[x.e]}</span><span class="dur">${dur((x.b - x.a) / 60)}</span></div>`).join('')}</div>`;

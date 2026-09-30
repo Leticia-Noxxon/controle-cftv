@@ -5,8 +5,67 @@ const obter = (a) => fetch(`${base}data/${a}`).then((r) => { if (!r.ok) throw ne
 
 export const POS = { 21: 'Frontal', 22: 'Frente', 23: 'Corredor 1', 24: 'Corredor 2', 25: 'Corredor 3', 26: 'Corredor 4' };
 export const camNome = (c) => (POS[c] ? `Câmera ${c} · ${POS[c]}` : `Câmera id ${c}`);
-export const SEM_GARAGEM = 'Não informado';
 export const D = {};
+
+// ---------------------------------------------------------------------------------------------------------------
+// Garagem/Empresa normalizada. Regra: garagem e empresa são a mesma coisa escrita de formas diferentes. A garagem de
+// cada veículo é a EMPRESA do registro mais recente do prefixo no monitoramento (nunca fica "Não informado").
+// Tabela explícita: nome no monitoramento (empresa) -> Garagem/Empresa exibida.
+export const MAPA_EMPRESA = {
+  'A2 TRANSPORTES': 'A2 Transportes',
+  'ALFA RODOBUS': 'Alfa Rodobus',
+  'ALFA RODOBUS SPE': 'Alfa Rodobus SPE',
+  'GATO PRETO': 'Gato Preto',
+  'GATO PRETO A1': 'Gato Preto A1',
+  'METROPOLE - AE CARVALHO': 'Metrópole AE Carvalho',
+  'METROPOLE - EXPANDIR': 'Metrópole Expandir (Brás)',
+  'METROPOLE - IGUATEMI': 'Metrópole Iguatemi',
+  'METROPOLE - IMPERADOR': 'Metrópole Imperador',
+  'METROPOLE - ITAIM': 'Metrópole Itaim',
+  'METROPOLE - MBOI - MIRIM': "Metrópole M'Boi Mirim",
+  'METROPOLE PAULISTA - DEPINEDO': 'Metrópole Pinedo',
+  'NORTE BUSS A1': 'Norte Buss A1',
+  'NORTE BUSS A2': 'Norte Buss A2',
+  NOXXONSAT: 'Noxxonsat',
+  'SANTA BRIGIDA': 'Santa Brígida',
+  'TRANS UNIÃO': 'Trans União',
+  'TRANSUNIAO TRANSPORTES D7': 'Transunião Transportes D7',
+  'VIA SUDESTE': 'Via Sudeste',
+  'VIACAO GRAJAU': 'Viação Grajaú',
+};
+// Nome da garagem no formulário de manutenção / relatórios -> Garagem/Empresa (usado só quando o prefixo não está no
+// monitoramento; nos demais casos vale a empresa do veículo).
+export const MAPA_FORMULARIO = {
+  'A2 Transportes': 'A2 Transportes',
+  'Alfa Rodobus': 'Alfa Rodobus',
+  'Alfa Rodobus SPE': 'Alfa Rodobus SPE',
+  'Gato Preto - Mackenzie': 'Gato Preto',
+  'Gato Preto - Portinari': 'Gato Preto',
+  'Norte Buss A1': 'Norte Buss A1',
+  'Norte Buss A2': 'Norte Buss A2',
+  'Santa Brigida': 'Santa Brígida',
+  'Via Sudeste Cursino': 'Via Sudeste',
+  'Via Sudeste Sapopemba': 'Via Sudeste',
+  'Viação Grajaú': 'Viação Grajaú',
+  'Viação Metrópole AE Carvalho': 'Metrópole AE Carvalho',
+  'Viação Metrópole Brás': 'Metrópole Expandir (Brás)',
+  'Viação Metrópole Iguatemi': 'Metrópole Iguatemi',
+  'Viação Metrópole Imperador': 'Metrópole Imperador',
+  'Viação Metrópole Itaim': 'Metrópole Itaim',
+  "Viação Metrópole M'Boi Mirim": "Metrópole M'Boi Mirim",
+  'Viação Metrópole Pinedo': 'Metrópole Pinedo',
+};
+const titulo = (t) => String(t).toLowerCase().replace(/(^|[\s-])(\p{L})/gu, (m, a, b) => a + b.toUpperCase());
+// Nomes novos que ainda não estão na tabela: aparecem com a grafia do monitoramento em formato de título
+export const garagemDaEmpresa = (e) => (e == null ? 'Sem empresa' : MAPA_EMPRESA[e] || titulo(e));
+export const garagemDoFormulario = (g) => (g ? MAPA_FORMULARIO[g] || g : 'Sem empresa');
+
+// Rótulos oficiais dos status (matriz diária, legenda, dicas, gráfico)
+export const ROTULO = { on: 'Funcional', off: '100% Offline', fa: 'Erro de SD card e/ou 1+ câmera com problema', nd: 'Sem conexão' };
+export const ROTULO_CURTO = { on: 'Funcional', off: '100% Offline', fa: 'Erro SD e/ou problema', nd: 'Sem conexão' };
+export const CAMS_POS = [21, 22, 23, 24, 25, 26];
+const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+export const nomeMes = (ym) => `${MESES[Number(ym.slice(5, 7)) - 1].replace(/^./, (c) => c.toUpperCase())} de ${ym.slice(0, 4)}`;
 // Opção extra do filtro de Empresa: agrupa todas as empresas cujo nome contém METROPOLE (sem diferenciar maiúsculas/acentos)
 export const GRUPO_METROPOLE = '*METROPOLE';
 const semAcento = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
@@ -18,13 +77,15 @@ export async function carregar() {
   Object.assign(D, { meta, dias: meta.dias, nd: meta.dias.length, empresas: meta.empresas, garagens: meta.garagens, cameras: meta.cameras, cobertura: meta.cobertura });
   D.W = meta.codec.largura;
   D.manut = new Map(manut.map((m) => [m.i, m]));
-  D.veiculos = frota.veiculos.map((v) => ({ ...v, empresa: v.e == null ? '—' : meta.empresas[v.e], garagem: v.g || SEM_GARAGEM }));
+  D.veiculos = frota.veiculos.map((v) => { const empresa = v.e == null ? null : meta.empresas[v.e]; return { ...v, empresa: empresa || '—', garagem: garagemDaEmpresa(empresa) }; });
+  D.garagens = [...new Set(D.veiculos.map((v) => v.garagem))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  D.meses = [...new Set(meta.dias.map((d) => d.slice(0, 7)))];
   D.porPrefixo = new Map(D.veiculos.map((v) => [v.p, v]));
   // índices por empresa / garagem / câmera
-  D.idx = { empresa: new Map(), garagem: new Map(), camera: new Map() };
+  D.idx = { garagem: new Map(), camera: new Map() };
   D.veiculos.forEach((v) => {
     const add = (m, k) => { if (!m.has(k)) m.set(k, []); m.get(k).push(v); };
-    add(D.idx.empresa, v.empresa); add(D.idx.garagem, v.garagem);
+    add(D.idx.garagem, v.garagem);
     v.c.forEach((c) => add(D.idx.camera, String(c)));
   });
   return D;
@@ -63,7 +124,7 @@ export function veiculosFiltrados(F, comPrefixo = true) {
   if (key === memoKey) return memoRes;
   let base = D.veiculos;
   if (F.camera) base = D.idx.camera.get(F.camera) || [];
-  if (F.empresa) base = base.filter((v) => empresaPassa(v.empresa, F.empresa));
+  if (F.empresa) base = base.filter((v) => empresaPassa(v.garagem, F.empresa));
   const q = comPrefixo ? F.prefixo.split(/[\s,;]+/).filter(Boolean) : [];
   if (q.length) base = base.filter((v) => q.some((x) => String(v.p).includes(x)));
   memoKey = key; memoRes = base;
@@ -72,6 +133,7 @@ export function veiculosFiltrados(F, comPrefixo = true) {
 
 export function faixaDias(F) {
   let a = 0, b = D.nd - 1;
+  if (F.mes) { a = D.dias.findIndex((d) => d.startsWith(F.mes)); b = D.dias.findLastIndex((d) => d.startsWith(F.mes)); if (a < 0) return []; }
   if (F.de) { const i = D.dias.findIndex((d) => d >= F.de); a = i < 0 ? D.nd : i; }
   if (F.ate) { let i = -1; D.dias.forEach((d, k) => { if (d <= F.ate) i = k; }); b = i; }
   const out = [];
@@ -118,6 +180,33 @@ export function ultimoCodigo(v, c, dias) {
 }
 export const catCodigo = (x) => (x === 'N' ? 'on' : x === 'O' ? 'off' : 'fa');
 
+// Situação do veículo pelo último registro de cada câmera no período (mesma base dos cards).
+// cams: {câmera: 'on' | 'fa' | 'off'}; cat: on = todas funcionais, off = todas offline, fa = demais com dados, nd = sem registro.
+export function situacao(v, dias, cam) {
+  const cams = {};
+  let on = 0, fa = 0, off = 0;
+  v.c.forEach((c) => {
+    if (cam && String(c) !== String(cam)) return;
+    const x = ultimoCodigo(v, c, dias);
+    if (!x) return;
+    const k = catCodigo(x);
+    cams[c] = k;
+    if (k === 'on') on += 1; else if (k === 'off') off += 1; else fa += 1;
+  });
+  const n = on + fa + off;
+  const cat = !n ? 'nd' : on === n ? 'on' : off === n ? 'off' : 'fa';
+  return { cams, on, fa, off, n, cat, falha: fa + off > 0 };
+}
+// Categorias do clique nos cards: on = tem câmera funcional; fa = tem câmera com erro de SD; off = tem câmera offline; veic = fa ou off
+export const noCard = (s, card) => !card || (card === 'on' ? s.on > 0 : card === 'fa' ? s.fa > 0 : card === 'off' ? s.off > 0 : s.falha);
+
+export function posicionarTip(tip, ev) {
+  tip.style.display = 'block';
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  tip.style.left = `${Math.max(8, Math.min(ev.clientX + 12, innerWidth - w - 8))}px`;
+  tip.style.top = `${ev.clientY + 14 + h > innerHeight ? Math.max(8, ev.clientY - h - 10) : ev.clientY + 14}px`;
+}
+
 // Formatação
 export const fmtN = (n) => Number(n).toLocaleString('pt-BR');
 export const fmtP = (v, d = 1) => (v == null ? '—' : `${v.toLocaleString('pt-BR', { maximumFractionDigits: d, minimumFractionDigits: d })}%`);
@@ -133,7 +222,7 @@ export function dur(min) {
 }
 export const hhmm = (s) => `${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}`;
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const svg = (d, w = 18) => `<svg viewBox="0 0 24 24" width="${w}" height="${w}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+export const svg = (d, w = 18) => `<svg viewBox="0 0 24 24" width="${w}" height="${w}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 export const ICONE = {
   grade: svg('<rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/>'),
   grafico: svg('<path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/>'),
@@ -142,6 +231,11 @@ export const ICONE = {
   off: svg('<path d="M2 2l20 20"/><path d="M8.5 16.5a5 5 0 0 1 7 0"/><path d="M5 12.9a10 10 0 0 1 5.2-2.7"/><path d="M19 12.9a10 10 0 0 0-2.3-1.6"/><path d="M2 8.8a15 15 0 0 1 4.2-2.7"/><path d="M22 8.8A15 15 0 0 0 11 5"/><circle cx="12" cy="20" r="0.6"/>'),
   alerta: svg('<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/>'),
   sol: '<svg viewBox="0 0 40 40" width="34" height="34" aria-hidden="true"><g stroke="#4B6B56" stroke-width="1.6" stroke-linecap="round">' + Array.from({ length: 24 }, (_, k) => { const a = (k * Math.PI) / 12; return `<line x1="${(20 + 5 * Math.cos(a)).toFixed(2)}" y1="${(20 + 5 * Math.sin(a)).toFixed(2)}" x2="${(20 + 18 * Math.cos(a)).toFixed(2)}" y2="${(20 + 18 * Math.sin(a)).toFixed(2)}"/>`; }).join('') + '</g></svg>',
+  tabela: svg('<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 10h18M9 10v10"/>'),
+  matriz: svg('<rect x="3" y="3" width="5" height="5" rx="1.2"/><rect x="10" y="3" width="5" height="5" rx="1.2"/><rect x="17" y="3" width="4" height="5" rx="1.2"/><rect x="3" y="10" width="5" height="5" rx="1.2"/><rect x="10" y="10" width="5" height="5" rx="1.2"/><rect x="17" y="10" width="4" height="5" rx="1.2"/><rect x="3" y="17" width="5" height="4" rx="1.2"/><rect x="10" y="17" width="5" height="4" rx="1.2"/><rect x="17" y="17" width="4" height="4" rx="1.2"/>'),
+  excel: svg('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="m9 12 4 5M13 12l-4 5"/>', 16),
+  chave: svg('<path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.5 2.5-2.3-.7-.7-2.3z"/>', 16),
+  os: svg('<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3v3h6V3M9 11h6M9 15h4"/>', 16),
   dir: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>',
   esq: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>',
   x: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>',
