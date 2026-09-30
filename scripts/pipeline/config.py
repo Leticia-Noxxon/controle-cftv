@@ -8,7 +8,6 @@ SITE_DATA = ROOT / 'site' / 'public' / 'data'
 DUCKDB = PROCESSED / '_trabalho.duckdb'
 
 TZ = 'America/Sao_Paulo'          # timestamps do BigQuery vêm em UTC; tudo é exibido no horário de Brasília
-MES = (2026, 9)                   # mês exibido na matriz
 MEMORY_LIMIT = '1500MB'
 
 # id_camera do monitoramento -> número da câmera (confirmado pela usuária: 1001 = 21, 1002 = 22, ...)
@@ -19,6 +18,11 @@ POSICAO = {21: 'FRONTAL', 22: 'FRENTE', 23: 'CORREDOR 1', 24: 'CORREDOR 2', 25: 
 POSICAO_PARA_CAMERA = {v: k for k, v in POSICAO.items()}
 # bit de cada câmera nas máscaras compactas do site (1007 = câmera fora do mapeamento)
 BIT_CAMERA = {21: 0, 22: 1, 23: 2, 24: 3, 25: 4, 26: 5, 1007: 6}
+
+# Resolução da coleta (≈ 1 registro por câmera por hora). Um registro cobre o intervalo até o próximo registro,
+# se vier em até LACUNA_MAX_S (60 min + 5 min de tolerância); senão cobre INTERVALO_NOMINAL_S e o resto é "sem dados".
+INTERVALO_NOMINAL_S = 3600
+LACUNA_MAX_S = 3900
 
 # Janela "antes" da manutenção
 JANELA_ANTES_H = 24

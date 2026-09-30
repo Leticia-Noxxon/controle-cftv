@@ -64,3 +64,72 @@ def test_depois_limitado_pela_proxima_visita():
     g = _regs([(21, '2026-09-10 08:00', 'O'), (21, '2026-09-10 11:00', 'O'), (21, '2026-09-11 12:00', 'N')])
     prox = {'inicio': '2026-09-11T09:00'}
     assert analise.avaliar(g, EV, prox, FIM)['resultado'] == 'Não resolvido'
+
+
+# ---------- normalização, deduplicação, intervalos, garagens e textos de manutenção ----------
+import duckdb  # noqa: E402
+
+from pipeline import config, garagens, monitoramento  # noqa: E402
+import atualizar_dados  # noqa: E402
+
+CAB = 'timestamp,id_veiculo,prefixo_veiculo,id_empresa,empresa,id_camera,serial_modulo,latitude,longitude,status,sdcard,login,recording\n'
+
+
+def _con_com(tmp_path, monkeypatch, arquivos):
+    paths = []
+    for nome, txt in arquivos.items():
+        p = tmp_path / nome
+        p.write_text(txt, encoding='utf-8')
+        paths.append(p)
+    monkeypatch.setattr(config, 'arquivos_monitoramento', lambda: sorted(paths))
+    con = duckdb.connect()
+    con.execute(f"SET TimeZone='{config.TZ}'")
+    return con
+
+
+def test_deduplicacao_e_esquema_alternativo(tmp_path, monkeypatch):
+    a = CAB + ('2026-09-25 10:00:00 UTC,1,100,9,  EMP   X ,1001,s,,,online,ok,ok,ok\n'
+               '2026-09-25 11:00:00 UTC,1,100,9,EMP X,1001,s,,,online,error,ok,ok\n')
+    # arquivo mais novo, com outro nome de coluna (prefixo / data_hora) e o mesmo registro das 11:00 repetido + um novo
+    b = ('data_hora,id_veiculo,prefixo,id_empresa,empresa,id_camera,serial_modulo,latitude,longitude,status,sdcard,login,recording\n'
+         '2026-09-25 11:00:00 UTC,1,100,9,EMP X,1001,s,,,online,error,ok,ok\n'
+         '2026-09-25 12:00:00 UTC,1,100,9,N/A,1001,s,,,offline,,,\n')
+    con = _con_com(tmp_path, monkeypatch, {'bq-results-20260901-000000-1.csv': a, 'bq-results-20260930-000000-2.csv': b})
+    info = monitoramento.carregar(con)
+    assert info['registros_brutos'] == 4 and info['registros_validos'] == 3 and info['removidos_na_deduplicacao'] == 1
+    rows = con.execute('SELECT hora, camera, codigo, empresa, arquivo FROM registros ORDER BY ts_utc').fetchall()
+    assert [r[2] for r in rows] == ['N', '1', 'O']
+    assert rows[0][1] == 21 and rows[0][3] == 'EMP X' and rows[2][3] is None      # espaços colapsados; 'N/A' -> NULL
+    assert rows[1][4].endswith('-2.csv')                                           # empate: fica o arquivo mais recente
+    assert [r[0] for r in rows] == [7, 8, 9]                                        # UTC -> Brasília
+
+
+def test_intervalos_lacuna_e_meia_noite(tmp_path, monkeypatch):
+    # 22:30, 23:30 BRT (=01:30, 02:30 UTC) e 03:30 BRT do dia seguinte (lacuna de 4 h)
+    a = CAB + ('2026-09-26 01:30:00 UTC,1,100,9,E,1001,s,,,online,ok,ok,ok\n'
+               '2026-09-26 02:30:00 UTC,1,100,9,E,1001,s,,,offline,,,\n'
+               '2026-09-26 06:30:00 UTC,1,100,9,E,1001,s,,,offline,,,\n'
+               '2026-09-26 07:30:00 UTC,1,100,9,E,1001,s,,,offline,,,\n')
+    con = _con_com(tmp_path, monkeypatch, {'bq-results-1.csv': a})
+    monitoramento.carregar(con)
+    monitoramento.agregar(con)
+    t = con.execute("SELECT CAST(data AS VARCHAR), strftime(ini, '%H:%M'), strftime(fim, '%H:%M'), estado FROM trecho ORDER BY ini").fetchall()
+    assert t == [('2026-09-25', '22:30', '23:30', 'N'),
+                 ('2026-09-25', '23:30', '00:00', 'O'),       # dividido na meia-noite
+                 ('2026-09-26', '00:00', '00:30', 'O'),       # lacuna > 65 min: o registro cobre só 60 min
+                 ('2026-09-26', '03:30', '04:30', 'O')]       # 03:30 + 04:30 unidos; o último registro não passa do fim dos dados
+
+
+def test_garagens_normalizacao_e_conflito():
+    assert garagens.normalizar('  Viação   Grajaú ') == 'Viação Grajaú'
+    for nulo in ('', '-', 'N/A', 'null', 'undefined', None):
+        assert garagens.normalizar(nulo) is None
+    mapa, conflitos, _ = garagens.resolver(
+        [(1, 'Garagem A', '2026-09-01T10:00', 'formulario'), (1, 'Garagem B', '2026-09-20T10:00', 'formulario'),
+         (2, '-', '2026-09-20T10:00', 'formulario'), (3, 'Garagem C', '', 'relatorio')])
+    assert mapa == {1: 'Garagem B', 3: 'Garagem C'} and list(conflitos) == [1]
+
+
+def test_linhas_texto_manutencao():
+    txt = 'Nenhuma anomalia identificada<br>Câmera 21 sem imagem;  - Troca do cabo da câm 21 <br/>Câmera 21 sem imagem\nSD card da UCP substituído.'
+    assert atualizar_dados.linhas_texto(txt) == ['Câmera 21 sem imagem', 'Troca do cabo da câm 21', 'SD card da UCP substituído']

@@ -3,6 +3,7 @@
 --reusar  reaproveita as tabelas DuckDB já carregadas (desenvolvimento)."""
 import datetime as dt
 import json
+import re
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -10,7 +11,7 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from pipeline import analise, config, manutencao, monitoramento, relatorio  # noqa: E402
+from pipeline import analise, config, garagens, manutencao, monitoramento  # noqa: E402
 
 BIT = config.BIT_CAMERA
 
@@ -27,18 +28,91 @@ def iso(x):
     return None if x is None or pd.isna(x) else pd.Timestamp(x).isoformat(timespec='minutes')
 
 
+B36 = '0123456789abcdefghijklmnopqrstuvwxyz'
+LARG = 3   # cada valor de minutos ocupa 3 caracteres em base 36 (até 46.655 min)
+
+
+def b36(n):
+    n = int(round(n or 0))
+    out = ''
+    for _ in range(LARG):
+        out = B36[n % 36] + out
+        n //= 36
+    return out
+
+
+BOILERPLATE = re.compile(r'^(nenhuma?\s+(anomalia|a[cç][aã]o|problema)\w*(\s+\w+)?\.?)$', re.IGNORECASE)
+
+
+def linhas_texto(txt):
+    """Quebra o texto em linhas (\n, <br>, ';'), remove marcadores, vazios, boilerplate e repetições (sem reinterpretar)."""
+    if not txt:
+        return []
+    t = re.sub(r'<br\s*/?>', '\n', str(txt), flags=re.IGNORECASE)
+    vistos, out = set(), []
+    for l in re.split(r'[\n;]+', t):
+        l = re.sub(r'^[\s\-•*·]+', '', l).strip().rstrip('.').strip()
+        if not l or BOILERPLATE.match(l) or l.lower() in vistos:
+            continue
+        vistos.add(l.lower())
+        out.append(l)
+    return out
+
+
+def curto(l, n=150):
+    return l if len(l) <= n else l[:n - 1].rstrip() + '…'
+
+
+def resumo_manutencao(forms):
+    """Problema (até 3 linhas) e Ação (até 3 linhas) a partir das respostas do formulário.
+    Problema: itens estruturados por posição/câmera. Ação: observação final do técnico (se houver); senão as ações
+    estruturadas por câmera. Nada é reescrito além de separar, limpar e remover repetições."""
+    prob, acao_estr, obs = [], [], []
+    for f in forms:
+        for pz in f['posicoes']:
+            nome = f"Câm {pz['camera']}" if pz['camera'] else pz['posicao'].title()
+            if pz['problemas']:
+                prob.append(f"{nome}: {', '.join(dict.fromkeys(x['item'] for x in pz['problemas']))}")
+            if pz['acoes']:
+                acao_estr.append(f"{nome}: {', '.join(dict.fromkeys(x['item'] for x in pz['acoes']))}")
+        obs += linhas_texto(f['observacoes'])
+    prob, acao_estr, obs = list(dict.fromkeys(prob)), list(dict.fromkeys(acao_estr)), list(dict.fromkeys(obs))
+    corta = lambda xs: [curto(x) for x in xs[:3]] + ([f'+{len(xs) - 3} item(ns) no registro completo'] if len(xs) > 3 else [])
+    return {'problema': corta(prob), 'acao': corta(obs if obs else acao_estr), 'acao_fonte': 'observacao' if obs else 'formulario'}
+
+
+def texto_completo(forms):
+    partes = []
+    for f in forms:
+        partes.append(f"Formulário {f['data_texto'] or ''} · {f['tecnico']} (linha {f['linha_excel']} da planilha)")
+        for r in f['respostas']:
+            partes.append(f"{r['coluna']}: {r['valor']}")
+        partes.append('')
+    return '\n'.join(partes).strip()
+
+
 def main(reusar=False):
     con = monitoramento.conectar()
     tabelas = {r[0] for r in con.execute('SHOW TABLES').fetchall()}
-    if not (reusar and {'reg3', 'camera_dia', 'veiculo_dia'} <= tabelas):
-        print('carregando CSVs…', monitoramento.carregar(con))
+    carga = None
+    arq_carga = config.PROCESSED / 'carga_monitoramento.json'
+    if reusar and 'registros' in tabelas and arq_carga.exists():
+        carga = json.loads(arq_carga.read_text(encoding='utf-8'))
+    else:
+        carga = monitoramento.carregar(con)
+        print('carga:', json.dumps(carga, default=str, ensure_ascii=False))
+        arq_carga.write_text(json.dumps(carga, default=str, ensure_ascii=False, indent=1), encoding='utf-8')
+    if not (reusar and {'reg3', 'camera_dia', 'intervalo', 'trecho', 'tempo_camera_dia'} <= tabelas):
         monitoramento.agregar(con)
     qual = monitoramento.qualidade(con)
-    cob = con.execute('SELECT * FROM cobertura_dia').fetchdf()
+    cob = con.execute('SELECT * FROM cobertura_dia ORDER BY data').fetchdf()
     inicio, fim = con.execute('SELECT min(ts_local), max(ts_local) FROM reg3').fetchone()
     ultimo_dia = fim.date()
-    ano, mes = config.MES
-    dias_mes = [dt.date(ano, mes, d) for d in range(1, 32) if (dt.date(ano, mes, 1) + dt.timedelta(days=d - 1)).month == mes]
+    # datas vêm dos dados (todas as datas com pelo menos um registro, em ordem cronológica) — nada fixo no código
+    dias = [pd.Timestamp(d).date() for d in cob.data]
+    assert dias == sorted(set(dias)), 'datas duplicadas ou fora de ordem'
+    di = {d: i for i, d in enumerate(dias)}
+    nd = len(dias)
 
     # ---------------- formulário de manutenção ----------------
     respostas, info_form = manutencao.ler()
@@ -47,140 +121,109 @@ def main(reusar=False):
     eventos = analise.eventos_manutencao(con, forms, fim)
     for i, e in enumerate(eventos):
         e['idx'] = i
-    garagem_prefixo = {}
-    for f in sorted([f for f in forms if f['duplicada_de'] is None and f['datahora']], key=lambda f: f['datahora']):
-        if f['garagem']:
-            garagem_prefixo[f['prefixo']] = str(f['garagem'])
+    form_por_id = {f['id']: f for f in forms}
 
-    # ---------------- relatório diário (28/09) ----------------
-    rels = relatorio.ler()
-    rel = rels[-1] if rels else None
+    # ---------------- garagens (todas as fontes) ----------------
+    mapa_gar, conflitos_gar, stats_gar = garagens.resolver(garagens.do_monitoramento(con), garagens.do_relatorio(), garagens.do_formulario(forms))
+    (config.PROCESSED / 'garagens_conflitos.json').write_text(json.dumps(conflitos_gar, ensure_ascii=False, indent=1), encoding='utf-8')
 
-    # ---------------- frota (por prefixo) ----------------
-    veic = con.execute('SELECT * FROM veiculo').fetchdf()
-    vd = con.execute(f"SELECT * FROM veiculo_dia WHERE year(data)={ano} AND month(data)={mes}").fetchdf()
-    mes_stats = con.execute(f"""SELECT prefixo, count(*) n, count(*) FILTER (WHERE estado='N') ok, count(*) FILTER (WHERE estado='F') f,
-        count(*) FILTER (WHERE estado='O') o FROM reg3 WHERE year(data)={ano} AND month(data)={mes} GROUP BY 1""").fetchdf().set_index('prefixo')
-    cam_mes = con.execute(f"""SELECT prefixo, camera, sum(n) n, sum(n_ok) ok, sum(n_falha) f, sum(n_off) o, sum(n_sd) sd, sum(transicoes) tr,
-        count(*) FILTER (WHERE n_falha+n_off>0) dias_prob, count(*) dias FROM camera_dia WHERE year(data)={ano} AND month(data)={mes} GROUP BY 1,2""").fetchdf()
-    ult = con.execute('SELECT * FROM ultimo_estado').fetchdf()
+    # ---------------- frota (índice leve, carregado na abertura) ----------------
+    veic = con.execute('SELECT * FROM veiculo ORDER BY prefixo').fetchdf()
     empresas = sorted(veic.empresa.dropna().unique().tolist())
     emp_idx = {e: i for i, e in enumerate(empresas)}
-    ev_por_pd = defaultdict(list)
-    for e in eventos:
-        ev_por_pd[(e['prefixo'], e['data'])].append(e['idx'])
-    di = {d: i for i, d in enumerate(dias_mes)}
     frota = {}
     for r in veic.itertuples():
         p = int(r.prefixo)
-        cams = [int(c) for c in r.cameras]
-        frota[p] = {'p': p, 'e': emp_idx.get(r.empresa), 'es': [emp_idx[x] for x in r.empresas] if len(r.empresas) > 1 else None,
-                    'g': garagem_prefixo.get(p), 'c': cams, 'd': [None] * len(dias_mes), 'm': None, 'u': {}, 'r': None, 'cm': {},
-                    'mv': {}, 'ul': iso(r.ultimo)}
-    for r in vd.itertuples():
-        f = frota[int(r.prefixo)]
-        i = di[pd.Timestamp(r.data).date()]
-        if r.n_falha + r.n_off == 0:
-            f['d'][i] = 100
-            continue
-        m = (1 if r.n_ok else 0) | (2 if r.n_falha else 0) | (4 if r.n_off else 0)
-        g = lambda v: None if pd.isna(v) else int(v)
-        f['d'][i] = [round(100 * r.n_ok / r.n, 1), m, g(r.cams_falha) or 0, g(r.cams_off) or 0, int(r.erro_bits),
-                     g(r.off_h1), g(r.off_h2), g(r.falha_h1), g(r.falha_h2), round(100 * r.n_falha / r.n, 1), round(100 * r.n_off / r.n, 1)]
-    for p, s in mes_stats.iterrows():
-        frota[int(p)]['m'] = [int(s.n), int(s.ok), int(s.f), int(s.o)]
-    for r in cam_mes.itertuples():
-        frota[int(r.prefixo)]['cm'][int(r.camera)] = [int(r.n), int(r.ok), int(r.f), int(r.o), int(r.sd), int(r.tr), int(r.dias_prob), int(r.dias)]
-    # estado de cada câmera em cada dia do mês: dígito = presença de estados (1 online, 2 falha, 4 offline; 0 = sem registro)
-    cdm = con.execute(f"""SELECT prefixo, camera, data, (CASE WHEN n_ok>0 THEN 1 ELSE 0 END) + (CASE WHEN n_falha>0 THEN 2 ELSE 0 END)
-        + (CASE WHEN n_off>0 THEN 4 ELSE 0 END) m FROM camera_dia WHERE year(data)={ano} AND month(data)={mes}""").fetchdf()
-    for (p, c), g in cdm.groupby(['prefixo', 'camera']):
-        k = ['0'] * len(dias_mes)
-        for d, m in zip(g.data, g.m):
-            k[di[pd.Timestamp(d).date()]] = str(int(m))
-        frota[int(p)].setdefault('k', {})[int(c)] = ''.join(k)
-    for r in ult.itertuples():
-        frota[int(r.prefixo)]['u'][int(r.camera)] = [r.codigo, iso(r.ts)]
-    for (p, d), idxs in ev_por_pd.items():
-        if p in frota:
-            dd = dt.date.fromisoformat(d)
-            if dd in di:
-                frota[p]['mv'][di[dd]] = idxs
-    if rel:
-        for p, x in rel['registros'].items():
-            if p in frota:
-                frota[p]['r'] = {c: v for c, v in x['cams'].items() if v not in ('.',)}
-    # prefixos que estão no relatório 28/09 mas não no monitoramento
-    rel_sem_mon = sorted(p for p in (rel['registros'] if rel else {}) if p not in frota)
+        frota[p] = {'p': p, 'e': emp_idx.get(r.empresa), 'g': mapa_gar.get(p), 'c': [int(c) for c in r.cameras], 'k': {}, 'l': {}, 't': None, 'mv': {}}
+    tcd = con.execute("""SELECT t.prefixo, t.camera, t.data, coalesce(t.s_ok,0) s_ok, coalesce(t.s_falha,0) s_falha, coalesce(t.s_off,0) s_off, t.ultimo_codigo,
+            (CASE WHEN c.n_ok>0 THEN 1 ELSE 0 END) + (CASE WHEN c.n_falha>0 THEN 2 ELSE 0 END) + (CASE WHEN c.n_off>0 THEN 4 ELSE 0 END) m
+        FROM tempo_camera_dia t JOIN camera_dia c USING (prefixo, camera, data)""").fetchdf()
+    tcd['i'] = [di[pd.Timestamp(d).date()] for d in tcd.data]
+    zero = b36(0) * 3
+    por_cam = defaultdict(dict)       # camera -> prefixo -> string de tempos
+    tv = defaultdict(lambda: [[0, 0, 0] for _ in range(nd)])
+    for (p, c), g in tcd.groupby(['prefixo', 'camera']):
+        p, c = int(p), int(c)
+        k, l, t = ['0'] * nd, ['.'] * nd, [zero] * nd
+        for i, m, u, a, b, o in zip(g.i, g.m, g.ultimo_codigo, g.s_ok, g.s_falha, g.s_off):
+            k[i], l[i] = str(int(m)), u
+            t[i] = b36(a / 60) + b36(b / 60) + b36(o / 60)
+            x = tv[p][i]
+            x[0] += a / 60; x[1] += b / 60; x[2] += o / 60
+        frota[p]['k'][c] = ''.join(k)
+        frota[p]['l'][c] = ''.join(l)
+        por_cam[c][p] = ''.join(t)
+    for p, arr in tv.items():
+        frota[p]['t'] = ''.join(b36(a) + b36(b) + b36(o) for a, b, o in arr)
+    ev_por_pd = defaultdict(list)
+    for e in eventos:
+        dd = dt.date.fromisoformat(e['data'])
+        if e['prefixo'] in frota and dd in di:
+            frota[e['prefixo']]['mv'].setdefault(di[dd], []).append(e['idx'])
 
-    for e in eventos:   # retrato do relatório diário (sem horário) — só informativo
-        f = frota.get(e['prefixo'])
-        e['relatorio'] = f['r'] if f and f['r'] else None
-    # ---------------- problemas em aberto ----------------
-    seqs = analise.sequencias_problema(con, ultimo_dia)
-    for s in seqs:
-        f = frota.get(s['prefixo'])
-        s['empresa'] = empresas[f['e']] if f and f['e'] is not None else None
-        s['garagem'] = f['g'] if f else None
-        s['relatorio_28'] = (f['r'] or {}).get(s['camera']) if f and f['r'] else None
-        evs = [e for e in eventos if e['prefixo'] == s['prefixo']]
-        s['ultima_manutencao'] = max((e['inicio'] for e in evs), default=None)
-        s['manutencao_durante'] = [e['inicio'] for e in evs if e['inicio'] >= s['inicio']]
+    # ---------------- manutenções: resumo leve + texto completo no detalhe ----------------
+    man_site, man_texto = [], defaultdict(dict)
+    for e in eventos:
+        fs = [form_por_id[i] for i in e['forms']]
+        man_site.append({'i': e['idx'], 'p': e['prefixo'], 'd': e['data'], 'h': e['inicio'][11:16], 'tec': e['tecnicos'],
+                         'cams': e['cameras_formulario'], **resumo_manutencao(fs)})
+        man_texto[e['prefixo']][e['idx']] = texto_completo(fs)
 
-    # ---------------- detalhe horário (segmentos de estado, fatiado por prefixo % 64) ----------------
-    seg = con.execute("""WITH a AS (SELECT prefixo, camera, data, ts_local, codigo,
-            CASE WHEN codigo = lag(codigo) OVER w THEN 0 ELSE 1 END AS novo FROM reg3
-            WINDOW w AS (PARTITION BY prefixo, camera, data ORDER BY ts_utc)),
-          b AS (SELECT *, sum(novo) OVER (PARTITION BY prefixo, camera, data ORDER BY ts_local ROWS UNBOUNDED PRECEDING) grp FROM a)
-        SELECT prefixo, camera, data, strftime(min(ts_local), '%H%M%S') i, strftime(max(ts_local), '%H%M%S') f, any_value(codigo) c, count(*) n
-        FROM b GROUP BY prefixo, camera, data, grp ORDER BY prefixo, camera, data, i""").fetchdf()
+    # ---------------- detalhe: trechos da linha do tempo por câmera/dia (carregado sob demanda) ----------------
+    import shutil
+    shutil.rmtree(config.SITE_DATA / 'detalhe', ignore_errors=True)
+    shutil.rmtree(config.SITE_DATA / 'cam', ignore_errors=True)
+    for f in ['problemas.json', 'manutencoes.json']:
+        (config.SITE_DATA / f).unlink(missing_ok=True)
+    tr = con.execute("""SELECT prefixo, camera, data, CAST(epoch(ini - CAST(data AS TIMESTAMP)) AS INT) s, CAST(epoch(fim - CAST(data AS TIMESTAMP)) AS INT) e,
+            codigo, n FROM trecho ORDER BY prefixo, camera, data, ini""").fetchdf()
     shards = defaultdict(dict)
-    for (p, c, d), g in seg.groupby(['prefixo', 'camera', 'data'], sort=False):
-        shards[int(p) % 64].setdefault(str(int(p)), {}).setdefault(str(int(c)), {})[pd.Timestamp(d).date().isoformat()] = [[a, b, x, int(n)] for a, b, x, n in zip(g.i, g.f, g.c, g.n)]
+    for (p, c, d), g in tr.groupby(['prefixo', 'camera', 'data'], sort=False):
+        shards[int(p) % 64].setdefault(str(int(p)), {'t': {}, 'm': {}})['t'].setdefault(str(int(c)), {})[pd.Timestamp(d).date().isoformat()] = \
+            [[int(a), int(b), x, int(n)] for a, b, x, n in zip(g.s, g.e, g.codigo, g.n)]
+    for p, txts in man_texto.items():
+        shards[int(p) % 64].setdefault(str(int(p)), {'t': {}, 'm': {}})['m'].update({str(k): v for k, v in txts.items()})
     for k, v in shards.items():
         salvar(f'detalhe/{k:02d}.json', v)
-
-    # ---------------- manutenções (site) ----------------
-    forms_site = [f for f in forms if f['duplicada_de'] is None]
-    for f in forms_site:
-        f['evento'] = next((e['idx'] for e in eventos if f['id'] in e['forms']), None)
-    dup = [{'linha_excel': f['linha_excel'], 'duplicada_de': f['duplicada_de'], 'prefixo': f['prefixo'], 'datahora': f['datahora']}
-           for f in forms if f['duplicada_de'] is not None]
+    for c, v in por_cam.items():
+        salvar(f'cam/{c}.json', v)
 
     # ---------------- metadados ----------------
     meta = {
         'gerado_em': dt.datetime.now().isoformat(timespec='minutes'), 'fuso': config.TZ,
-        'monitoramento': {'arquivos': [a.name for a in config.arquivos_monitoramento()], 'inicio': iso(inicio), 'fim': iso(fim),
-                          'ultimo_dia': ultimo_dia.isoformat(), 'registros_validos': int(con.execute('SELECT count(*) FROM reg3').fetchone()[0]),
-                          'registros_brutos': int(con.execute('SELECT count(*) FROM bruto').fetchone()[0]) if 'bruto' in tabelas or not reusar else None,
-                          'prefixos': len(frota), 'cameras': int(len(ult))},
-        'cobertura': [{'data': pd.Timestamp(r.data).date().isoformat(), 'registros': int(r.registros), 'prefixos': int(r.prefixos), 'inicio': iso(r.inicio),
-                       'fim': iso(r.fim), 'horas': int(r.horas)} for r in cob.itertuples()],
-        'dias_mes': [d.isoformat() for d in dias_mes], 'empresas': empresas,
-        'formulario': {**{k: v for k, v in info_form.items() if k != 'colunas'}, 'colunas_publicadas': [c for c in info_form['colunas'] if c not in manutencao.COLUNAS_NAO_PUBLICADAS],
-                       'formularios_validos': len(forms_site), 'eventos': len(eventos), 'duplicadas': dup},
-        'relatorio': ({'arquivo': rel['arquivo'], 'aba': rel['aba'], 'abas': rel['abas'], 'data': rel['data'], 'prefixos': len(rel['registros']),
-                       'prefixos_sem_monitoramento': len(rel_sem_mon),
-                       'contagem': dict(Counter(v for x in rel['registros'].values() for v in x['cams'].values()))} if rel else None),
-        'qualidade': {k: v for k, v in qual.items()},
-        'janela_antes_h': config.JANELA_ANTES_H, 'posicoes': {str(k): v for k, v in config.POSICAO.items()},
+        'atualizacao': iso(fim), 'inicio': iso(inicio),
+        'dias': [d.isoformat() for d in dias], 'empresas': empresas,
+        'garagens': stats_gar['valores_distintos'], 'cameras': sorted(por_cam),
+        'codec': {'base': 36, 'largura': LARG, 'valores': ['online_min', 'falha_min', 'offline_min']},
+        'intervalo': {'nominal_s': config.INTERVALO_NOMINAL_S, 'lacuna_max_s': config.LACUNA_MAX_S},
+        'cobertura': [{'data': pd.Timestamp(r.data).date().isoformat(), 'registros': int(r.registros), 'prefixos': int(r.prefixos),
+                       'inicio': iso(r.inicio), 'fim': iso(r.fim), 'horas': int(r.horas)} for r in cob.itertuples()],
     }
     salvar('meta.json', meta)
-    salvar('frota.json', {'dias': meta['dias_mes'], 'empresas': empresas, 'veiculos': list(frota.values())})
-    salvar('problemas.json', seqs)
-    salvar('manutencoes.json', {'eventos': eventos, 'formularios': forms_site})
+    salvar('frota.json', {'veiculos': list(frota.values())})
+    salvar('manut.json', man_site)
 
-    # ---------------- tabelas de conferência (data/processed) ----------------
+    # ---------------- análises completas (conferência; não carregadas pelo site) ----------------
+    seqs = analise.sequencias_problema(con, ultimo_dia)
+    for s_ in seqs:
+        f = frota.get(s_['prefixo'])
+        s_['empresa'] = empresas[f['e']] if f and f['e'] is not None else None
+        s_['garagem'] = f['g'] if f else None
+    (config.PROCESSED / 'problemas_em_aberto.json').write_text(json.dumps(seqs, ensure_ascii=False, default=str), encoding='utf-8')
+    (config.PROCESSED / 'manutencoes_completo.json').write_text(json.dumps({'eventos': eventos, 'formularios': [f for f in forms if f['duplicada_de'] is None]},
+                                                                            ensure_ascii=False, default=str), encoding='utf-8')
     pd.DataFrame(seqs).to_csv(config.PROCESSED / 'problemas_em_aberto.csv', index=False, encoding='utf-8-sig')
     pd.DataFrame([{k: (', '.join(map(str, v)) if isinstance(v, list) else v) for k, v in e.items() if k not in ('cameras', 'antes', 'depois')}
                   for e in eventos]).to_csv(config.PROCESSED / 'manutencoes_eventos.csv', index=False, encoding='utf-8-sig')
     con.execute(f"COPY (SELECT * FROM camera_dia ORDER BY prefixo, camera, data) TO '{config.PROCESSED / 'camera_dia.csv'}' (HEADER)")
     resumo = {
-        'ultimo_estado': dict(Counter('Online' if v[0] == 'N' else 'Offline' if v[0] == 'O' else 'Falha' for f in frota.values() for v in f['u'].values())),
-        'problemas_em_aberto': len(seqs), 'eventos': len(eventos),
-        'resultado': dict(Counter(e['resultado'] for e in eventos)), 'precisava': dict(Counter(e['precisava'] for e in eventos)),
+        'carga': {k: v for k, v in carga.items() if k != 'arquivos'}, 'dias': [dias[0].isoformat(), dias[-1].isoformat(), nd],
+        'garagens': {k: v for k, v in stats_gar.items() if k != 'valores_distintos'}, 'qualidade_extra': {'camera_fora_do_mapeamento': qual['camera_fora_do_mapeamento'],
+        'combinacoes': qual['combinacoes_status'], 'prefixos_multiempresa': len(qual['prefixos_com_mais_de_uma_empresa'])},
+        'eventos': len(eventos), 'resultado': dict(Counter(e['resultado'] for e in eventos)),
     }
-    print(json.dumps(resumo, ensure_ascii=False, indent=1))
+    (config.PROCESSED / 'resumo_atualizacao.json').write_text(json.dumps(resumo, ensure_ascii=False, indent=1, default=str), encoding='utf-8')
+    print(json.dumps(resumo, ensure_ascii=False, indent=1, default=str))
     return resumo
 
 

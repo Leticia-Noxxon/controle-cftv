@@ -25,37 +25,99 @@ def conectar():
     return con
 
 
+# Camada de normalização: nomes de coluna aceitos em cada CSV -> nome canônico. Um CSV com esquema diferente
+# (ex.: 'prefixo' em vez de 'prefixo_veiculo', 'data_hora' em vez de 'timestamp') é lido pelo mesmo caminho.
+ALIASES = {
+    'timestamp': ['timestamp', 'data_hora', 'datahora', 'ts', 'horario'],
+    'id_veiculo': ['id_veiculo', 'veiculo_id'],
+    'prefixo_veiculo': ['prefixo_veiculo', 'prefixo', 'veiculo_prefixo'],
+    'id_empresa': ['id_empresa', 'empresa_id'],
+    'empresa': ['empresa', 'nome_empresa', 'company'],
+    'garagem': ['garagem', 'nome_garagem', 'garage'],
+    'id_camera': ['id_camera', 'camera', 'camera_id'],
+    'serial_modulo': ['serial_modulo', 'serial'],
+    'latitude': ['latitude', 'lat'], 'longitude': ['longitude', 'lon', 'lng'],
+    'status': ['status'], 'sdcard': ['sdcard', 'sd_card', 'sd'], 'login': ['login'], 'recording': ['recording', 'gravacao'],
+}
+
+
+def _norm_txt(col):
+    """trim + espaços colapsados; '', '-', 'N/A', 'null', 'undefined' viram NULL."""
+    return (f"CASE WHEN lower(trim(regexp_replace(CAST({col} AS VARCHAR), '\\s+', ' ', 'g'))) IN ('', '-', 'n/a', 'na', 'null', 'none', 'undefined') "
+            f"THEN NULL ELSE trim(regexp_replace(CAST({col} AS VARCHAR), '\\s+', ' ', 'g')) END")
+
+
+def esquema(con, arq):
+    return [r[0] for r in con.execute(f"DESCRIBE SELECT * FROM read_csv('{arq}', header=true, all_varchar=true)").fetchall()]
+
+
 def carregar(con):
     arqs = [str(a) for a in config.arquivos_monitoramento()]
     if not arqs:
         raise FileNotFoundError('Nenhum bq-results-*.csv em data/raw')
-    lista = ', '.join(f"'{a}'" for a in arqs)
-    # linha_csv = número da linha no arquivo original (cabeçalho = linha 1), para rastreabilidade
-    con.execute(f"""CREATE OR REPLACE TABLE bruto AS
-      SELECT regexp_extract(filename, '[^/]+$') AS arquivo,
-             row_number() OVER (PARTITION BY filename) + 1 AS linha_csv, * EXCLUDE (filename)
-      FROM read_csv([{lista}], header=true, all_varchar=true, filename=true)""")
+    partes, esquemas = [], {}
+    for a in arqs:
+        cols = esquema(con, a)
+        low = {c.lower().strip(): c for c in cols}
+        esquemas[a.split('/')[-1]] = cols
+        sel = []
+        for can, alts in ALIASES.items():
+            orig = next((low[x] for x in alts if x in low), None)
+            sel.append(f'{_norm_txt(chr(34) + orig + chr(34))} AS {can}' if orig else f'NULL::VARCHAR AS {can}')
+        # linha_csv = número da linha no arquivo original (cabeçalho = linha 1), para rastreabilidade
+        partes.append(f"""SELECT '{a.split('/')[-1]}' AS arquivo, row_number() OVER () + 1 AS linha_csv, {', '.join(sel)}
+                          FROM read_csv('{a}', header=true, all_varchar=true)""")
+    con.execute('CREATE OR REPLACE TABLE bruto AS ' + ' UNION ALL '.join(partes))
     mapa = ' '.join(f'WHEN {k} THEN {v}' for k, v in config.ID_CAMERA.items())
+    # Deduplicação por prefixo + câmera + data/hora (timestamp completo). Entre registros com a mesma chave fica o
+    # válido (status reconhecido), depois o mais completo (mais campos preenchidos) e, por fim, o do arquivo mais
+    # recente (os nomes bq-results-AAAAMMDD-HHMMSS ordenam pela data da exportação).
     con.execute(f"""CREATE OR REPLACE TABLE registros AS
-      WITH t AS (
+      WITH n AS (
         SELECT *, strptime(replace(timestamp,' UTC','+00'), ['%Y-%m-%d %H:%M:%S.%f%z','%Y-%m-%d %H:%M:%S%z']) AS ts_utc,
-               row_number() OVER (PARTITION BY timestamp, id_veiculo, prefixo_veiculo, id_empresa, empresa, id_camera, serial_modulo,
-                                  latitude, longitude, status, sdcard, login, recording ORDER BY arquivo, linha_csv) AS ocorrencia
-        FROM bruto)
+               TRY_CAST(prefixo_veiculo AS BIGINT) AS prefixo, TRY_CAST(id_camera AS INT) AS id_camera_i,
+               lower(status) AS st, lower(sdcard) AS sd, lower(login) AS lg, lower(recording) AS rc
+        FROM bruto),
+      c AS (SELECT *, CASE
+          WHEN st = 'offline' THEN 'O'
+          WHEN st = 'online' AND sd = 'ok' AND lg = 'ok' AND rc = 'ok' THEN 'N'
+          WHEN st = 'online' AND sd IN ('ok','error') AND lg IN ('ok','error') AND rc IN ('ok','error')
+            THEN CAST((CASE WHEN sd='error' THEN 1 ELSE 0 END) + (CASE WHEN lg='error' THEN 2 ELSE 0 END) + (CASE WHEN rc='error' THEN 4 ELSE 0 END) AS VARCHAR)
+          ELSE '?' END AS codigo,
+          (CASE WHEN id_veiculo IS NULL THEN 0 ELSE 1 END + CASE WHEN empresa IS NULL THEN 0 ELSE 1 END + CASE WHEN serial_modulo IS NULL THEN 0 ELSE 1 END
+           + CASE WHEN st IS NULL THEN 0 ELSE 1 END + CASE WHEN sd IS NULL THEN 0 ELSE 1 END + CASE WHEN lg IS NULL THEN 0 ELSE 1 END
+           + CASE WHEN rc IS NULL THEN 0 ELSE 1 END + CASE WHEN garagem IS NULL THEN 0 ELSE 1 END) AS completude
+        FROM n),
+      r AS (SELECT *, row_number() OVER (PARTITION BY prefixo, id_camera_i, ts_utc
+                ORDER BY (codigo <> '?') DESC, completude DESC, arquivo DESC, linha_csv DESC) AS ordem,
+              count(*) OVER (PARTITION BY prefixo, id_camera_i, ts_utc) AS n_chave
+            FROM c WHERE ts_utc IS NOT NULL AND prefixo IS NOT NULL AND id_camera_i IS NOT NULL)
       SELECT arquivo, linha_csv, timestamp AS timestamp_original, ts_utc,
              timezone('{config.TZ}', ts_utc) AS ts_local,
              CAST(timezone('{config.TZ}', ts_utc) AS DATE) AS data,
              EXTRACT(hour FROM timezone('{config.TZ}', ts_utc))::INT AS hora,
-             TRY_CAST(prefixo_veiculo AS BIGINT) AS prefixo, id_veiculo, TRY_CAST(id_empresa AS INT) AS id_empresa, trim(empresa) AS empresa,
-             TRY_CAST(id_camera AS INT) AS id_camera,
-             CASE TRY_CAST(id_camera AS INT) {mapa} ELSE TRY_CAST(id_camera AS INT) END AS camera,
-             serial_modulo, status, sdcard, login, recording,
-             {SQL_CODIGO} AS codigo
-      FROM t WHERE ocorrencia = 1""")
-    info = con.execute("""SELECT (SELECT count(*) FROM bruto) brutos, (SELECT count(*) FROM registros) validos,
-        (SELECT count(DISTINCT prefixo) FROM registros) prefixos, (SELECT min(ts_local) FROM registros) inicio,
-        (SELECT max(ts_local) FROM registros) fim""").fetchone()
-    return dict(zip(['registros_brutos', 'registros_validos', 'prefixos', 'inicio', 'fim'], info))
+             prefixo, id_veiculo, TRY_CAST(id_empresa AS INT) AS id_empresa, empresa, garagem,
+             id_camera_i AS id_camera, CASE id_camera_i {mapa} ELSE id_camera_i END AS camera,
+             serial_modulo, st AS status, sd AS sdcard, lg AS login, rc AS recording, codigo, n_chave
+      FROM r WHERE ordem = 1 ORDER BY ts_utc, prefixo, camera""")
+    q = lambda x: con.execute(x).fetchone()[0]
+    info = {
+        'arquivos': esquemas,
+        'registros_brutos': q('SELECT count(*) FROM bruto'),
+        'registros_por_arquivo': dict(con.execute('SELECT arquivo, count(*) FROM bruto GROUP BY 1 ORDER BY 1').fetchall()),
+        'duplicados_identicos': q("""SELECT count(*) - count(DISTINCT (timestamp, id_veiculo, prefixo_veiculo, id_empresa, empresa, garagem, id_camera,
+                                     serial_modulo, latitude, longitude, status, sdcard, login, recording)) FROM bruto"""),
+        'descartados_sem_chave': q("""SELECT count(*) FROM bruto WHERE TRY_CAST(prefixo_veiculo AS BIGINT) IS NULL OR TRY_CAST(id_camera AS INT) IS NULL
+                                      OR timestamp IS NULL"""),
+        'registros_validos': q('SELECT count(*) FROM registros'),
+        'chaves_com_mais_de_um_registro': q('SELECT count(*) FROM registros WHERE n_chave > 1'),
+        'chaves_conflitantes': q("""SELECT count(*) FROM (SELECT 1 FROM (SELECT DISTINCT TRY_CAST(prefixo_veiculo AS BIGINT) p, id_camera, timestamp,
+                                    status, sdcard, login, recording FROM bruto) GROUP BY p, id_camera, timestamp HAVING count(*) > 1)"""),
+    }
+    info['removidos_na_deduplicacao'] = info['registros_brutos'] - info['descartados_sem_chave'] - info['registros_validos']
+    info.update(dict(zip(['prefixos', 'inicio', 'fim'], con.execute(
+        'SELECT count(DISTINCT prefixo), min(ts_local), max(ts_local) FROM registros').fetchone())))
+    return info
 
 
 def agregar(con):
@@ -70,6 +132,30 @@ def agregar(con):
     con.execute("""CREATE OR REPLACE TABLE reg3 AS
       SELECT *, CASE WHEN lag(estado) OVER w IS NOT NULL AND lag(estado) OVER w <> estado THEN 1 ELSE 0 END AS transicao
       FROM reg2 WINDOW w AS (PARTITION BY prefixo, camera ORDER BY ts_utc)""")
+    # Intervalo coberto por cada registro (resolução da coleta ≈ 1 h): do registro até o próximo registro da mesma câmera,
+    # se ele vier em até LACUNA_MAX_S; senão o registro cobre só INTERVALO_NOMINAL_S e o resto vira "sem dados".
+    # O último registro de cada câmera cobre até INTERVALO_NOMINAL_S, sem passar do fim dos dados. Intervalos que
+    # atravessam a meia-noite são divididos entre os dois dias.
+    con.execute(f"""CREATE OR REPLACE TABLE intervalo AS
+      WITH a AS (SELECT prefixo, camera, ts_utc, ts_local, estado, codigo,
+               epoch(lead(ts_utc) OVER (PARTITION BY prefixo, camera ORDER BY ts_utc) - ts_utc) AS ate_prox FROM reg3),
+      b AS (SELECT *, CASE WHEN ate_prox IS NULL THEN least({config.INTERVALO_NOMINAL_S}, epoch((SELECT max(ts_utc) FROM reg3) - ts_utc))
+                            WHEN ate_prox <= {config.LACUNA_MAX_S} THEN ate_prox ELSE {config.INTERVALO_NOMINAL_S} END AS dur FROM a),
+      c AS (SELECT *, ts_local + to_seconds(dur) AS fim_local, CAST(ts_local AS DATE) + INTERVAL 1 DAY AS meia_noite FROM b)
+      SELECT prefixo, camera, CAST(ts_local AS DATE) AS data, ts_local AS ini, least(fim_local, meia_noite) AS fim, estado, codigo, ts_utc FROM c
+      UNION ALL
+      SELECT prefixo, camera, CAST(meia_noite AS DATE), meia_noite, fim_local, estado, codigo, ts_utc FROM c WHERE fim_local > meia_noite""")
+    con.execute("""CREATE OR REPLACE TABLE tempo_camera_dia AS
+      SELECT prefixo, camera, data, sum(epoch(fim - ini)) FILTER (WHERE estado='N') AS s_ok, sum(epoch(fim - ini)) FILTER (WHERE estado='F') AS s_falha,
+             sum(epoch(fim - ini)) FILTER (WHERE estado='O') AS s_off, arg_max(codigo, ts_utc) AS ultimo_codigo
+      FROM intervalo GROUP BY ALL""")
+    # Linha do tempo: intervalos consecutivos com o mesmo estado e sem lacuna entre eles são unidos em um trecho.
+    con.execute("""CREATE OR REPLACE TABLE trecho AS
+      WITH a AS (SELECT *, CASE WHEN estado = lag(estado) OVER w AND ini = lag(fim) OVER w THEN 0 ELSE 1 END AS novo
+                 FROM intervalo WINDOW w AS (PARTITION BY prefixo, camera, data ORDER BY ini)),
+      b AS (SELECT *, sum(novo) OVER (PARTITION BY prefixo, camera, data ORDER BY ini ROWS UNBOUNDED PRECEDING) AS grp FROM a)
+      SELECT prefixo, camera, data, min(ini) AS ini, max(fim) AS fim, any_value(estado) AS estado, max(codigo) AS codigo, count(*) AS n
+      FROM b GROUP BY prefixo, camera, data, grp""")
     con.execute("""CREATE OR REPLACE TABLE camera_dia AS
       SELECT prefixo, camera, data, count(*) n,
         count(*) FILTER (WHERE estado='N') n_ok, count(*) FILTER (WHERE estado='F') n_falha, count(*) FILTER (WHERE estado='O') n_off,
@@ -105,7 +191,7 @@ def agregar(con):
 def qualidade(con):
     q = lambda s: con.execute(s).fetchone()[0]
     return {
-        'duplicados_identicos_removidos': q('SELECT (SELECT count(*) FROM bruto) - (SELECT count(*) FROM registros)'),
+        'duplicados_removidos': q('SELECT (SELECT count(*) FROM bruto) - (SELECT count(*) FROM registros)'),
         'timestamp_invalido': q('SELECT count(*) FROM registros WHERE ts_utc IS NULL'),
         'prefixo_ausente_ou_invalido': q('SELECT count(*) FROM registros WHERE prefixo IS NULL'),
         'camera_fora_do_mapeamento': con.execute("""SELECT id_camera, count(*) n, list(DISTINCT prefixo) prefixos, list(DISTINCT empresa) empresas

@@ -9,11 +9,14 @@ Herdadas do projeto anterior (`analise-cftv-manutencoes`) e adaptadas ao monitor
 5. No Relatório CFTV diário, “-” = câmera não instalada (não conta).
 6. Horários do BigQuery em UTC → exibir sempre em Brasília; dias parciais identificados.
 7. Estado: Online (tudo ok) / Erro SD/gravação (online com item em erro) / Offline.
-8. Matriz: quadrado verde (nenhuma câmera com problema no dia), laranja (algumas), vermelho (todas); cinza = sem dados; ponto azul só para manutenção. Sem texto dentro dos quadrados.
+8. Tabela: célula verde (nenhuma câmera com problema no dia), âmbar (algumas), vermelho (todas); cinza = sem dados; com uma câmera no filtro, estado da câmera. Ponto azul só para manutenção. Sem texto nas células.
 9. Células do formulário podem ter vários itens: separar, padronizar e manter o texto original.
 10. Recorrência na mesma câmera ≠ problema novo em outra câmera.
 11. Pendência detectada por palavras-chave, sempre com o trecho.
 12. Técnicos unificados só quando diferem por maiúsculas/minúsculas; sem ranking de técnicos.
 13. Distinguir dias corridos de dias com dado/registros.
 14. Não publicar IP de envio nem dados brutos; documentar premissas no README.
-15. Interface em português do Brasil, página única, fundo branco, cores suaves, sem negrito/sublinhado, sem textos explicativos na página (definições ficam no README).
+15. Interface em português do Brasil; duas páginas (Monitoramento e Estatísticas) sem recarregar; sem barra lateral, ícone de câmera ou emoji; fonte Inter; paleta e tamanhos definidos em `site/src/style.css`; definições ficam no README.
+16. Datas da tabela sempre vindas dos dados; novos CSVs passam pela normalização e pela deduplicação por prefixo + câmera + data/hora.
+17. Linha do tempo respeita a resolução da coleta (~1 h): registro vale até o próximo (≤ 65 min) ou 60 min; lacunas = Sem dados; disponibilidade = online ÷ tempo monitorado (sem “Sem dados”).
+18. Garagem: valor válido mais recente entre todas as fontes, conflitos registrados; sem fonte = “Não informado”; nunca deduzir da empresa.
