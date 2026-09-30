@@ -56,14 +56,17 @@ const camsVisiveis = () => (F.camera ? CAMS_POS.filter((c) => String(c) === F.ca
 function colunas() {
   const tot = { ...TOTAL[S1.modo], grupo: 't' };
   const base = S1.sit ? (S1.modo === 'veic' ? COLS_VEIC : COLS_CAM).filter((c) => !c.opcional || (ultimo && ultimo.total[c.k] > 0)).map((c, i) => ({ ...c, grupo: 's', ini: i === 0 })) : [];
-  const cams = camsVisiveis().map((c, i) => ({ k: `c${c}`, rot: String(c), grupo: 'c', ini: i === 0,
-    tip: S1.modo === 'veic' ? `Veículos com erro de SD card ou offline na ${camNome(c)} (último registro)` : `Câmeras ${c} (${camNome(c).split('· ')[1] || ''}) com erro de SD card ou offline (último registro)` }));
+  // Falha por posição segue o modo: Veículo = nº de veículos com a câmera daquela posição em falha (pv);
+  // Câmera = nº de câmeras daquela posição em falha (pc). Como cada veículo tem no máximo uma câmera por posição,
+  // os dois números coincidem nos dados atuais; a contagem fica separada para deixar a regra explícita.
+  const cams = camsVisiveis().map((c, i) => ({ k: `${S1.modo === 'veic' ? 'pv' : 'pc'}${c}`, cam: c, rot: String(c), grupo: 'c', ini: i === 0,
+    tip: S1.modo === 'veic' ? `Falha por posição · Veículos com a ${camNome(c)} com erro de SD card ou offline (último registro). Clique no número para ver a lista.` : `Falha por posição · Câmeras da posição ${c} (${camNome(c).split('· ')[1] || ''}) com erro de SD card ou offline (último registro). Clique no número para ver a lista.` }));
   return [tot, ...base, ...(S1.pos ? cams : []), ...(S1.manut ? COLS_MANUT.map((c, i) => ({ ...c, grupo: 'm', ini: i === 0 })) : [])];
 }
 
 function agregar(lista) {
   const g = new Map();
-  const novo = (nome) => ({ g: nome, vt: 0, vf: 0, vp: 0, vo: 0, vs: 0, vn: 0, ct: 0, cf: 0, cp: 0, cs: 0, co: 0, ma: 0, mr: 0, mp: 0, ms: 0, mi: 0, ...Object.fromEntries(CAMS_POS.map((c) => [`c${c}`, 0])) });
+  const novo = (nome) => ({ g: nome, vt: 0, vf: 0, vp: 0, vo: 0, vs: 0, vn: 0, ct: 0, cf: 0, cp: 0, cs: 0, co: 0, ma: 0, mr: 0, mp: 0, ms: 0, mi: 0, ...Object.fromEntries(CAMS_POS.flatMap((c) => [[`pv${c}`, 0], [`pc${c}`, 0]])) });
   const linha = (nome) => { if (!g.has(nome)) g.set(nome, novo(nome)); return g.get(nome); };
   lista.forEach(({ v, s }) => {
     const r = linha(v.garagem);
@@ -71,7 +74,9 @@ function agregar(lista) {
     r[{ on: 'vf', fa: 'vp', off: 'vo', sd: 'vs', nd: 'vn' }[s.cat]] += 1;
     r.ct += s.n; r.cf += s.on; r.cs += s.fa;
     if (s.cat === 'off') r.co += s.off; else r.cp += s.off; // offline: veículo 100% offline x parcial
-    Object.entries(s.cams).forEach(([c, k]) => { if (k !== 'on' && r[`c${c}`] !== undefined) r[`c${c}`] += 1; });
+    const falhas = {}; // câmeras em falha por posição neste veículo
+    Object.entries(s.cams).forEach(([c, k]) => { if (k !== 'on' && r[`pc${c}`] !== undefined) falhas[c] = (falhas[c] || 0) + 1; });
+    Object.entries(falhas).forEach(([c, n]) => { r[`pv${c}`] += 1; r[`pc${c}`] += n; });
   });
   return { linha, g, novo };
 }
@@ -175,12 +180,12 @@ function tabela() {
   const grupos = `<tr class="tr-grupo"><th rowspan="2" class="ord th-emp" data-o="g" aria-sort="${aria('g')}">Empresa${seta('g')}</th>
     <th rowspan="2" class="n ord g-t th-tot" data-o="${tot.k}" data-tip="${esc(tot.tip)}" aria-sort="${aria(tot.k)}">${tot.rot}${seta(tot.k)}</th>
     ${n('s') ? `<th colspan="${n('s')}" class="gh g-ini g-s" aria-label="Situação atual"></th>` : ''}
-    ${n('c') ? `<th colspan="${n('c')}" class="gh g-ini g-c" data-tip="${veic ? 'Nº de veículos com erro de SD card ou offline em cada posição de câmera (último registro). Clique num número para ver os veículos.' : 'Nº de câmeras com erro de SD card ou offline em cada posição (último registro). Clique num número para ver os veículos.'}">Falha por posição</th>` : ''}
+    ${n('c') ? `<th colspan="${n('c')}" class="gh g-ini g-c" aria-label="Falha por posição"></th>` : ''}
     ${n('m') ? `<th colspan="${n('m')}" class="gh g-ini g-m">Manutenção</th>` : ''}</tr>`;
   const th = (c) => `<th class="n ord${cls(c)}" data-o="${c.k}" data-tip="${esc(c.tip)}" aria-sort="${aria(c.k)}">${c.rot}${seta(c.k)}</th>`;
   const td = (r, c) => {
     const v = r[c.k];
-    if (c.grupo === 'c' && v) return `<td class="n${cls(c)}"><button class="num-pos" data-cam="${c.k.slice(1)}" title="Ver os ${fmtN(v)} ${veic ? 'veículos' : 'veículos com a câmera'} com falha na câmera ${c.rot}">${fmtN(v)}</button></td>`;
+    if (c.grupo === 'c' && v) return `<td class="n${cls(c)}"><button class="num-pos" data-cam="${c.cam}" title="Ver ${veic ? `os ${fmtN(v)} veículos` : `as ${fmtN(v)} câmeras`} com falha na posição ${c.rot}">${fmtN(v)}</button></td>`;
     return `<td class="n${v ? '' : ' z'}${cls(c)}">${fmtN(v)}</td>`;
   };
   el.innerHTML = `<table class="gt gt-emp"><thead>${grupos}<tr>${cols.slice(1).map(th).join('')}</tr></thead>
@@ -216,7 +221,7 @@ async function abrirPosicao(g, cam) {
   }).sort((a, b) => b.dias - a.dias || a.p - b.p);
   const curto = (t) => (t.length > 70 ? `${t.slice(0, t.lastIndexOf(' ', 70) > 40 ? t.lastIndexOf(' ', 70) : 70)}…` : t);
   const per = rotuloPeriodo(F.de, F.ate);
-  const m = abrirModal(`<div class="modal-cab"><div><h2>${esc(camNome(cam))} · ${esc(g || 'Todas as empresas')}</h2><div class="sub">${fmtN(linhas.length)} ${linhas.length === 1 ? 'veículo' : 'veículos'} com a câmera ${cam} em falha no último registro · ${per}</div></div>
+  const m = abrirModal(`<div class="modal-cab"><div><h2>${esc(camNome(cam))} · ${esc(g || 'Todas as empresas')}</h2><div class="sub">${fmtN(linhas.length)} ${S1.modo === 'veic' ? (linhas.length === 1 ? 'veículo' : 'veículos') : (linhas.length === 1 ? 'câmera' : 'câmeras')} da posição ${cam} em falha no último registro (uma câmera por veículo em cada posição) · ${per}</div></div>
       <div class="cab-acoes"><button class="btn-mini btn-sutil" id="pos-xlsx" title="Exportar esta lista para Excel">${ICONE.excel}<span>Exportar Excel</span></button><button class="fechar md-fechar" aria-label="Fechar">${ICONE.x}</button></div></div>
     <div class="tb-scroll"><table class="gt gt-pos"><thead><tr>${g ? '' : '<th>Empresa</th>'}<th>Prefixo</th><th>Status</th><th class="n" title="Sequência atual de dias com problema desta câmera">Dias c/ problema</th><th>Último registro</th><th>Última manutenção</th></tr></thead>
     <tbody>${linhas.map((r) => `<tr>${g ? '' : `<td>${esc(r.g)}</td>`}<td><b>${r.p}</b></td><td><span class="badge ${r.st === 'Offline' ? 'b-off' : 'b-sd'}">${r.st}</span></td><td class="n">${fmtN(r.dias)}</td><td>${r.u}</td><td class="man-c" title="${esc(r.man)}">${esc(curto(r.man))}</td></tr>`).join('')}</tbody></table></div>`, 'modal-pos');

@@ -102,15 +102,18 @@ with sync_playwright() as p:
     # ---------------- Cabeçalho ----------------
     topo = pg.evaluate("""() => { const t = document.querySelector('.titulo').getBoundingClientRect(), f = document.querySelector('#topo-filtros').getBoundingClientRect();
         return {tt: t.top, tb: t.bottom, ft: f.top, fb: f.bottom, fr: f.right, fl: f.left, tr: t.right, W: document.querySelector('.topo').getBoundingClientRect().right}; }""")
-    ok(topo['fl'] > topo['tr'] and topo['ft'] < topo['tb'] and abs(topo['W'] - topo['fr']) < 2, 'filtros na mesma linha do título, alinhados à direita')
+    ok(topo['fl'] > topo['tr'] and topo['ft'] < topo['tb'] and 0 <= topo['W'] - topo['fr'] < 20, 'filtros na mesma linha do título, alinhados à direita')
     ok(pg.query_selector('.subtitulo') is None, 'sem subtítulo')
-    pg.hover('#nav-matriz'); pg.wait_for_timeout(250)
-    tt = pg.evaluate("(() => { const s = getComputedStyle(document.querySelector('#nav-matriz'), '::after'); return [s.whiteSpace, parseFloat(s.height), parseFloat(s.width), s.opacity]; })()")
-    pg.hover('#nav-visao'); pg.wait_for_timeout(250)
-    tv = pg.evaluate("(() => { const s = getComputedStyle(document.querySelector('#nav-visao'), '::after'); return [s.whiteSpace, parseFloat(s.height), parseFloat(s.width), s.opacity]; })()")
-    ok(all(x[0] == 'nowrap' and x[1] < 30 and x[3] == '1' for x in (tt, tv)) and tv[2] > 60, f'dicas das abas em uma linha, na horizontal (Visão geral {tv[2]:.0f}x{tv[1]:.0f}px, Matriz {tt[2]:.0f}x{tt[1]:.0f}px)')
-    b_ = pg.query_selector('#nav-visao').bounding_box()
-    pg.screenshot(path=str(out / f'{pref}_1d_dica_aba.png'), clip={'x': 0, 'y': 0, 'width': 420, 'height': b_['y'] + 150})
+    for nav in ('#nav-matriz', '#nav-visao'):
+        pg.hover(nav); pg.wait_for_timeout(250)
+        tt = pg.evaluate("""() => { const t = document.getElementById('nav-tip'), cs = getComputedStyle(t), r = t.getBoundingClientRect();
+            return [t.parentElement === document.body, cs.position, Number(cs.zIndex), cs.whiteSpace, r.height, r.width, cs.opacity, t.textContent]; }""")
+        ok(tt[0] and tt[1] == 'fixed' and tt[2] >= 1000 and tt[3] == 'nowrap' and tt[4] < 32 and tt[6] == '1', f'dica "{tt[7]}" fixa no body (z-index {tt[2]}), acima de tudo, em uma linha ({tt[5]:.0f}x{tt[4]:.0f}px)')
+    pg.screenshot(path=str(out / f'{pref}_1d_dica_aba.png'), clip={'x': 0, 'y': 0, 'width': 520, 'height': 260})
+    hd = pg.evaluate("""() => { const c = (e) => { const r = document.querySelector(e).getBoundingClientRect(); return (r.top + r.bottom) / 2; };
+        return [c('.titulo'), c('#f-empresa'), c('.marca-ic'), getComputedStyle(document.querySelector('.marca-ic')).color, getComputedStyle(document.body).backgroundColor]; }""")
+    ok(abs(hd[0] - hd[1]) < 4 and abs(hd[2] - hd[0]) < 4 and hd[3] == 'rgb(37, 99, 235)' and hd[4] == 'rgb(244, 246, 249)', f'cabeçalho em barra: marca azul, título e filtros alinhados ao centro ({hd[0]:.0f}/{hd[1]:.0f}), fundo #F4F6F9')
+    pg.screenshot(path=str(out / f'{pref}_1e_cabecalho.png'), clip={'x': 0, 'y': 0, 'width': 1920, 'height': 90})
     pg.mouse.move(900, 600)
     ok(pg.inner_text('label[for="f-empresa"]') == 'Empresa', 'rótulo do filtro = Empresa')
     upd = pg.evaluate("() => { const e = document.getElementById('upd'), r = e.getBoundingClientRect(); return [getComputedStyle(e).position, innerWidth - r.right, innerHeight - r.bottom, e.textContent]; }")
@@ -139,7 +142,9 @@ with sync_playwright() as p:
     print('      colunas:', heads)
     ok(heads[:4] == ['Funcionais', '1+ câm. c/ falha', '100% offline', 'Erro SD'] and heads[-6:] == [str(c) for c in range(21, 27)], 'cabeçalhos curtos (Funcionais … Erro SD, 21 … 26)')
     grp = pg.inner_text('#v-tabela .tr-grupo').upper()
-    ok('SITUAÇÃO' not in grp and 'FALHA POR POSIÇÃO' in grp and 'MANUTENÇÃO' not in grp, 'sem rótulo "Situação atual"; grupo Falha por posição')
+    ok('SITUAÇÃO' not in grp and 'FALHA' not in grp and 'MANUTENÇÃO' not in grp, 'sem rótulos "Situação atual" e "Falha por posição"')
+    cor_cab = pg.evaluate("() => [...new Set([...document.querySelectorAll('#v-tabela thead th')].map((t) => getComputedStyle(t).color + ' ' + getComputedStyle(t).fontWeight))]")
+    ok(cor_cab == ['rgb(15, 23, 42) 400'], f'cabeçalhos em preto #0F172A, peso normal ({cor_cab})')
     ok(pg.is_checked('#v-sit') and pg.is_checked('#v-pos') and not pg.is_checked('#v-manut'), 'padrão: Situação atual e Falha por posição ligados, Manutenção desligada')
     ok(all(pg.get_attribute(f'#v-tabela th[data-o="{k}"]', 'data-tip') for k in ['vf', 'vp', 'vo', 'vs']), 'definições nas dicas dos cabeçalhos')
     garagens = [t.inner_text() for t in pg.query_selector_all('#v-tabela tbody .lnk-g')]
@@ -200,7 +205,12 @@ with sync_playwright() as p:
     ok(pg.query_selector('#v-tabela th[data-o="ma"]') is None, 'desligar Manutenção remove as colunas')
 
     # Veículo | Câmera
+    pos_v = [num(total(pg, f'pv{c}')) for c in range(21, 27)]
     pg.click('#v-modo button[data-m="cam"]'); pg.wait_for_timeout(250)
+    pos_c = [num(total(pg, f'pc{c}')) for c in range(21, 27)]
+    print('      falha por posição — veículos:', pos_v, 'câmeras:', pos_c)
+    ok(pg.query_selector('#v-tabela th[data-o="pc21"]') and pg.query_selector('#v-tabela th[data-o="pv21"]') is None and pos_v == pos_c,
+       'Falha por posição segue o modo (pv → pc); valores iguais porque há uma câmera por posição em cada veículo')
     ok(cabecalhos(pg)[:4] == ['Funcionais', '1+ câm. c/ falha', '100% offline', 'Erro SD'], 'modo Câmera com os mesmos nomes de coluna')
     ok(num(total(pg, 'cf')) == cards['on'] and num(total(pg, 'cs')) == cards['fa'] and num(total(pg, 'cp')) + num(total(pg, 'co')) == cards['off'] and num(total(pg, 'ct')) == cards['on'] + cards['fa'] + cards['off'],
        'modo Câmera: Funcionais, Erro SD e 1+ câm. + 100% offline batem com os cards')
@@ -358,6 +368,15 @@ with sync_playwright() as p:
     nt, nomet = gerar_os('', raiz / 'docs' / 'OS_exemplo_todas.xlsx')
     dt = verificar_os(raiz / 'docs' / 'OS_exemplo_todas.xlsx', CAMS, f'OS todas as câmeras ({nomet})')
     ok(len(dt) == nt, f'OS todas: {nt} veículos')
+    # celular: dica da aba acima do ícone, sobre a tabela
+    pg.set_viewport_size({'width': 390, 'height': 844}); pg.click('#nav-visao'); pg.wait_for_selector('#v-tabela .gt'); pg.wait_for_timeout(400)
+    pg.evaluate("window.scrollTo(0, document.body.scrollHeight)"); pg.wait_for_timeout(200)
+    pg.hover('#nav-matriz'); pg.wait_for_timeout(250)
+    sobre = pg.evaluate("""() => { const t = document.getElementById('nav-tip').getBoundingClientRect(), tb = document.querySelector('#v-tabela').getBoundingClientRect();
+        return [t.top >= tb.top && t.bottom <= tb.bottom + 40, getComputedStyle(document.getElementById('nav-tip')).opacity]; }""")
+    ok(sobre[1] == '1', f'celular: dica da aba visível por cima dos dados (sobre a tabela: {sobre[0]})')
+    pg.screenshot(path=str(out / f'{pref}_1f_dica_aba_sobre_dados.png'))
+    pg.click('#nav-matriz'); pg.wait_for_selector('.st'); pg.wait_for_timeout(300)
     # celular: painel como gaveta
     pg.set_viewport_size({'width': 390, 'height': 844}); pg.wait_for_timeout(300)
     pg.query_selector('#m-tabela .st:not(.nd)').click(); pg.wait_for_selector('#m-painel .iv'); pg.wait_for_timeout(300)

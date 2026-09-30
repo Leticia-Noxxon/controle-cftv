@@ -56,7 +56,7 @@ Filtros Empresa (com a opção METROPOLE), Câmera e Período (afetam tudo).
 
 https://leticia-noxxon.github.io/controle-cftv/v2/ usa o estilo do "Property Management Dashboard UI Kit" (Paperpillar) e os mesmos dados da versão principal (`../data/`). A versão principal não muda.
 
-- **Layout:**
+- **Layout:** fundo #F4F6F9, cabeçalho em barra branca com a marca de OS (prancheta com check, azul #2563EB), título em Inter 19px e filtros à direita, tudo centralizado na vertical. Cards brancos com borda #E2E8F0 e sombra mínima. A dica do nome da aba na barra lateral é um elemento fixo no body, sempre por cima dos dados.
   - Título "Controle de CFTV" com os filtros na mesma linha, à direita (Empresa, Câmera, Prefixo, Período / Mês).
   - Sem subtítulos. "Última atualização" é um texto discreto no canto inferior direito, com espaço reservado para não cobrir o conteúdo. Na Matriz fica fixo; na Visão geral fica no fim da página.
   - A Matriz ocupa a tela fixa (100dvh). A Visão geral pode rolar verticalmente para a tabela aparecer inteira, sem rolagem interna.
@@ -95,7 +95,7 @@ https://leticia-noxxon.github.io/controle-cftv/v2/ usa o estilo do "Property Man
     - A coluna Empresa e o total (Veículos ou Câmeras) ficam sempre visíveis.
     - Três blocos com chave própria, cada um com um tom de fundo suave:
       - **Situação atual** (branco, sem rótulo de grupo, ligado por padrão): Funcionais, 1+ câm. c/ falha, 100% offline, Erro SD. Os nomes são os mesmos no modo Câmera; nele, 1+ câm. c/ falha conta as câmeras offline de veículos parcialmente offline, e 100% offline as câmeras de veículos todo offline.
-      - **Falha por posição** (#FAFAF8, ligado por padrão): 21 a 26.
+      - **Falha por posição** (#FAFAF8, sem rótulo de grupo, ligado por padrão): 21 a 26. Segue o modo: em Veículo, conta os veículos com a câmera daquela posição em falha; em Câmera, conta as câmeras daquela posição em falha. Como cada veículo tem no máximo uma câmera por posição, os dois números coincidem.
       - **Manutenção** (#F7FAFD, desligado por padrão): Atendidos, Reincidências, Procedentes, Solucionados, Improcedentes.
     - Definições completas nas dicas dos cabeçalhos; ordenação, linha Total e exportação para Excel da visão atual.
     - **Clique num número de Falha por posição:** abre um modal só com os veículos da empresa (ou de todas, na linha Total) com aquela câmera em falha. Mostra prefixo, status, dias com problema, último registro e última manutenção resumida, com botão Exportar Excel.

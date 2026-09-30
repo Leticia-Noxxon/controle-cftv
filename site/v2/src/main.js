@@ -9,10 +9,23 @@ export const F = { empresa: '', camera: '', prefixo: '', de: '', ate: '', mes: '
 let carregado = false;
 const ABAS = { visao: { titulo: 'Visão geral', icone: ICONE.tabela }, matriz: { titulo: 'Matriz', icone: ICONE.matriz } };
 
-// Cabeçalho sem barra: título à esquerda e filtros na mesma linha, à direita. Última atualização fixa no canto
-// inferior direito. Barra lateral em pílula com as abas (dica com o título no hover/foco/toque longo).
+// Cabeçalho em barra: marca (ícone de OS) + título à esquerda, filtros à direita, centralizados na vertical.
+// Barra lateral com as abas; a dica do nome da aba é um elemento fixo no <body> (fica acima de tudo).
+const MARCA = `<svg class="marca-ic" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M9 4h6"/><path d="m9 13 2 2 4-4"/></svg>`;
+function dicaAba(b, mostrar) {
+  let t = document.getElementById('nav-tip');
+  if (!t) { t = Object.assign(document.createElement('div'), { id: 'nav-tip', className: 'nav-tip' }); t.setAttribute('role', 'tooltip'); document.body.appendChild(t); }
+  if (!mostrar) { t.classList.remove('vis'); return; }
+  t.textContent = b.dataset.tip;
+  const r = b.getBoundingClientRect();
+  const lado = innerWidth <= 640; // celular: barra embaixo, dica acima do ícone
+  t.classList.toggle('acima', lado);
+  t.classList.add('vis');
+  t.style.left = `${lado ? Math.max(8, Math.min(r.left + r.width / 2 - t.offsetWidth / 2, innerWidth - t.offsetWidth - 8)) : r.right + 10}px`;
+  t.style.top = `${lado ? r.top - t.offsetHeight - 8 : r.top + r.height / 2 - t.offsetHeight / 2}px`;
+}
 function cabecalho(aba) {
-  document.getElementById('topo').innerHTML = `<h1 class="titulo">Controle de CFTV</h1><div class="topo-filtros" id="topo-filtros"></div>`;
+  document.getElementById('topo').innerHTML = `<div class="marca"><span class="marca-box" title="Ordem de serviço · Controle de CFTV">${MARCA}</span><h1 class="titulo">Controle de CFTV</h1></div><div class="topo-filtros" id="topo-filtros"></div>`;
   const upd = document.getElementById('upd');
   upd.className = `atualizacao${carregado ? ' ok' : ''}`;
   upd.innerHTML = carregado ? `<i class="pt"></i>Última atualização ${dmy(D.meta.atualizacao.slice(0, 10))} ${D.meta.atualizacao.slice(11, 16)}` : '<i class="pt"></i>Carregando…';
@@ -22,8 +35,13 @@ function cabecalho(aba) {
   document.getElementById('nav-matriz').onclick = () => { location.hash = 'matriz'; };
   document.querySelectorAll('.nav-b').forEach((b) => {
     let t = 0;
-    b.addEventListener('touchstart', () => { t = setTimeout(() => b.classList.add('mostrar-tip'), 450); }, { passive: true });
-    b.addEventListener('touchend', () => { clearTimeout(t); setTimeout(() => b.classList.remove('mostrar-tip'), 1200); });
+    b.addEventListener('mouseenter', () => dicaAba(b, true));
+    b.addEventListener('mouseleave', () => dicaAba(b, false));
+    b.addEventListener('focus', () => { if (b.matches(':focus-visible')) dicaAba(b, true); });
+    b.addEventListener('blur', () => dicaAba(b, false));
+    b.addEventListener('click', () => dicaAba(b, false));
+    b.addEventListener('touchstart', () => { t = setTimeout(() => dicaAba(b, true), 450); }, { passive: true });
+    b.addEventListener('touchend', () => { clearTimeout(t); setTimeout(() => dicaAba(b, false), 1200); });
   });
 }
 
