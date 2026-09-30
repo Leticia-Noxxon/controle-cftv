@@ -54,13 +54,26 @@ Filtros Empresa (com a opção METROPOLE), Câmera e Período (afetam tudo).
 
 ## Versão v2 (layout alternativo)
 
-https://leticia-noxxon.github.io/controle-cftv/v2/ usa o estilo do "Property Management Dashboard UI Kit" (Paperpillar) e os mesmos dados da versão principal (`../data/`). A versão principal não muda.
+https://leticia-noxxon.github.io/controle-cftv/v2/ tem identidade visual própria ("OS · Controle CFTV") e usa os mesmos dados da versão principal (`../data/`). A versão principal não muda.
 
-- **Layout:** fundo #F4F6F9, cabeçalho em barra branca com a marca de OS (prancheta com check, azul #2563EB), título em Inter 19px e filtros à direita, tudo centralizado na vertical. Cards brancos com borda #E2E8F0 e sombra mínima. A dica do nome da aba na barra lateral é um elemento fixo no body, sempre por cima dos dados.
-  - Título "Controle de CFTV" com os filtros na mesma linha, à direita (Empresa, Câmera, Prefixo, Período / Mês).
-  - Sem subtítulos. "Última atualização" é um texto discreto no canto inferior direito, com espaço reservado para não cobrir o conteúdo. Na Matriz fica fixo; na Visão geral fica no fim da página.
-  - A Matriz ocupa a tela fixa (100dvh). A Visão geral pode rolar verticalmente para a tabela aparecer inteira, sem rolagem interna.
-  - A barra lateral tem duas abas, com dica ao passar o mouse, focar ou tocar e segurar. No celular ela vai para baixo.
+- **Marca:** o logo é um monograma "OS" (ordem de serviço) em SVG (`site/v2/src/logo.js`). É um selo quadrado arredondado em degradê azul → índigo (#3B82F6 → #2563EB → #4F46E5), com o "O" desenhado como lente de câmera. O mesmo desenho aparece na barra lateral, no cabeçalho do celular e no favicon. Close-up: `docs/screenshots/v2_logo.png`.
+- **Tema claro/escuro:** o botão sol/lua fica no cabeçalho. A escolha é salva no navegador (`localStorage 'cftv-tema'`); sem escolha salva, vale a preferência do sistema.
+  - Todas as cores são variáveis CSS em `html[data-tema]`.
+  - O escuro usa ardósia profunda: fundo #0B1220 e cards #111A2E. As cores de status ficam mais claras para manter o contraste.
+  - Gráficos, modais, matriz e dicas seguem o tema. O gráfico lê as cores das variáveis `--c-*`.
+- **Sistema visual:**
+  - Espaçamento em escala de 8 px (4 px para ajustes finos).
+  - Escala tipográfica em Inter: 11 · 12 · 13 · 14 · 16 · 20 · 24–30 px.
+  - Superfícies neutras, com a cor usada como significado: verde funcional, âmbar 1+ câm., vermelho offline, violeta erro de SD, cinza sem conexão. Azul é a cor da marca.
+  - Sombras mínimas. Textos com contraste AA (≥ 4,5:1) nos dois temas; os zeros da tabela são cinza claro de propósito.
+- **Barra lateral:**
+  - Ícones em traço uniforme (estilo Lucide) com rótulos visíveis: "Visão geral" e "Matriz diária".
+  - Aba ativa com fundo azul claro e barra em degradê.
+  - Largura por tela: 244 px com legenda de status a partir de 1600 px; trilho de 92 px (ícone sobre o rótulo) em telas menores; barra inferior no celular.
+- **Cabeçalho:** título "Controle de CFTV" com o nome da aba ao lado, filtros na mesma linha à direita (Empresa, Câmera, Prefixo, Período / Mês) e o botão de tema.
+  - "Última atualização" é um texto discreto no canto inferior direito. Na Matriz fica fixo; na Visão geral fica no fim da página.
+  - No estado padrão, as duas abas cabem em 1920×1080 e 1366×768 sem rolagem da página. As linhas da tabela se ajustam à altura da tela (`--lin-e`).
+- **Cards:** cada card mostra o rótulo, um ícone de status colorido, o número grande, o percentual, a variação no canto superior direito (verde = melhora, vermelho = piora) e uma barra fina de proporção na cor do status.
 - **Período:** calendário próprio em popover, em pt-BR.
   - Dois cliques escolhem um intervalo; dois cliques no mesmo dia escolhem um dia só.
   - Atalhos Último dia e Últimos 7 dias, além de Limpar (também pelo × do campo).

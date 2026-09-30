@@ -101,18 +101,27 @@ with sync_playwright() as p:
 
     # ---------------- Cabeçalho ----------------
     topo = pg.evaluate("""() => { const t = document.querySelector('.titulo').getBoundingClientRect(), f = document.querySelector('#topo-filtros').getBoundingClientRect();
-        return {tt: t.top, tb: t.bottom, ft: f.top, fb: f.bottom, fr: f.right, fl: f.left, tr: t.right, W: document.querySelector('.topo').getBoundingClientRect().right}; }""")
-    ok(topo['fl'] > topo['tr'] and topo['ft'] < topo['tb'] and 0 <= topo['W'] - topo['fr'] < 20, 'filtros na mesma linha do título, alinhados à direita')
+        return {tt: t.top, tb: t.bottom, ft: f.top, fb: f.bottom, fr: f.right, fl: f.left, tr: t.right, W: document.getElementById('tema-btn').getBoundingClientRect().left}; }""")
+    ok(topo['fl'] > topo['tr'] and topo['ft'] < topo['tb'] and 0 <= topo['W'] - topo['fr'] < 20, 'filtros na mesma linha do título, alinhados à direita (antes do botão de tema)')
     ok(pg.query_selector('.subtitulo') is None, 'sem subtítulo')
-    for nav in ('#nav-matriz', '#nav-visao'):
-        pg.hover(nav); pg.wait_for_timeout(250)
-        tt = pg.evaluate("""() => { const t = document.getElementById('nav-tip'), cs = getComputedStyle(t), r = t.getBoundingClientRect();
-            return [t.parentElement === document.body, cs.position, Number(cs.zIndex), cs.whiteSpace, r.height, r.width, cs.opacity, t.textContent]; }""")
-        ok(tt[0] and tt[1] == 'fixed' and tt[2] >= 1000 and tt[3] == 'nowrap' and tt[4] < 32 and tt[6] == '1', f'dica "{tt[7]}" fixa no body (z-index {tt[2]}), acima de tudo, em uma linha ({tt[5]:.0f}x{tt[4]:.0f}px)')
-    pg.screenshot(path=str(out / f'{pref}_1d_dica_aba.png'), clip={'x': 0, 'y': 0, 'width': 520, 'height': 260})
+    rot = pg.evaluate("() => [...document.querySelectorAll('.nav-b')].map((b) => { const r = b.querySelector('.nav-rot'); return [r.textContent.trim(), r.getBoundingClientRect().width > 20 && getComputedStyle(r).visibility === 'visible', b.classList.contains('ativo')]; })")
+    ok([r[0] for r in rot] == ['Visão geral', 'Matriz diária'] and all(r[1] for r in rot) and rot[0][2], f'menu com rótulos visíveis ao lado dos ícones e aba ativa marcada ({rot})')
+    pg.screenshot(path=str(out / f'{pref}_1d_menu.png'), clip={'x': 0, 'y': 0, 'width': 520, 'height': 260})
     hd = pg.evaluate("""() => { const c = (e) => { const r = document.querySelector(e).getBoundingClientRect(); return (r.top + r.bottom) / 2; };
-        return [c('.titulo'), c('#f-empresa'), c('.marca-ic'), getComputedStyle(document.querySelector('.marca-ic')).color, getComputedStyle(document.body).backgroundColor]; }""")
-    ok(abs(hd[0] - hd[1]) < 4 and abs(hd[2] - hd[0]) < 4 and hd[3] == 'rgb(37, 99, 235)' and hd[4] == 'rgb(244, 246, 249)', f'cabeçalho em barra: marca azul, título e filtros alinhados ao centro ({hd[0]:.0f}/{hd[1]:.0f}), fundo #F4F6F9')
+        return [c('.titulo'), c('#f-empresa'), c('#tema-btn'), !!document.querySelector('.lateral .logo-os'), getComputedStyle(document.documentElement).backgroundColor, document.querySelector('.marca-txt').textContent]; }""")
+    ok(abs(hd[0] - hd[1]) < 4 and abs(hd[2] - hd[0]) < 4 and hd[3] and hd[4] == 'rgb(243, 245, 249)' and 'Controle CFTV' in hd[5], f'cabeçalho: logo OS na barra lateral, título, filtros e tema alinhados ({hd[0]:.0f}/{hd[1]:.0f}/{hd[2]:.0f}), fundo #F3F5F9')
+    fav = pg.get_attribute('link[rel="icon"]', 'href')
+    ok('svg' in fav and '2563eb' in fav, 'favicon = logo OS')
+    # tema claro/escuro: padrão do sistema (claro), alterna, persiste
+    ok(pg.evaluate("document.documentElement.dataset.tema") == 'claro', 'tema padrão = preferência do sistema (claro)')
+    pg.click('#tema-btn'); pg.wait_for_timeout(250)
+    esc = pg.evaluate("() => [document.documentElement.dataset.tema, getComputedStyle(document.documentElement).backgroundColor, getComputedStyle(document.querySelector('.card')).backgroundColor, localStorage.getItem('cftv-tema'), document.getElementById('tema-btn').getAttribute('aria-pressed')]")
+    ok(esc[:4] == ['escuro', 'rgb(11, 18, 32)', 'rgb(17, 26, 46)', 'escuro'], f'tema escuro: fundo #0B1220, cards #111A2E, salvo no navegador ({esc})')
+    pg.screenshot(path=str(out / f'{pref}_1_visao_geral_escuro.png'))
+    pg.reload(wait_until='networkidle'); pg.wait_for_selector('#v-tabela .gt')
+    ok(pg.evaluate("document.documentElement.dataset.tema") == 'escuro', 'tema escuro mantido após recarregar')
+    pg.click('#tema-btn'); pg.wait_for_timeout(250)
+    ok(pg.evaluate("document.documentElement.dataset.tema") == 'claro', 'volta ao tema claro')
     pg.screenshot(path=str(out / f'{pref}_1e_cabecalho.png'), clip={'x': 0, 'y': 0, 'width': 1920, 'height': 90})
     pg.mouse.move(900, 600)
     ok(pg.inner_text('label[for="f-empresa"]') == 'Empresa', 'rótulo do filtro = Empresa')
@@ -129,7 +138,7 @@ with sync_playwright() as p:
         return [c.dataset.card, d.textContent, d.title, getComputedStyle(d).color, v.left - t.left, r.right - dr.right, dr.top - r.top]; })""")
     print('      variações:', [d[:2] + [d[3]] for d in deltas])
     ok(all(re.fullmatch(r'[↑↓=] [\d.]+', d[1]) and 'anterior' in d[2].lower() for d in deltas), 'variação "↑ 126" sem data, base na dica')
-    VERDE, VERM = 'rgb(47, 158, 98)', 'rgb(214, 69, 69)'
+    VERDE, VERM = 'rgb(21, 128, 61)', 'rgb(198, 40, 40)'
     sem = all(d[3] == ((VERDE if (d[1][0] == '↑') == (d[0] == 'on') else VERM) if d[1][0] in '↑↓' else d[3]) for d in deltas)
     ok(sem and all(d[5] < 30 and d[6] < 30 for d in deltas), 'variação no canto superior direito com cor semântica (funcionais ↑ verde; demais ↑ vermelho)')
     ok(all(abs(d[4]) < 3 for d in deltas), f'número alinhado à esquerda com o título (desvios {[round(d[4], 1) for d in deltas]})')
@@ -137,7 +146,7 @@ with sync_playwright() as p:
     pg.locator('#v-cards .kpi').first.screenshot(path=str(out / f'{pref}_1c_card_zoom.png'), scale='device')
     ok(pg.query_selector('#v-graf') is None and pg.query_selector('.vg-graf') is None, 'gráfico Evolução diária removido da página')
     ok(pg.eval_on_selector('.vg-bar h2', 'e => e.getBoundingClientRect().width') <= 1 and pg.query_selector('.vg-bar .sub') is None, 'sem título visível na tabela')
-    ok(pg.query_selector('.logo') is None, 'sem logo na barra lateral')
+    ok(len(pg.query_selector_all('.kpi .ic svg')) == 4 and len(pg.query_selector_all('.kpi .meter i')) == 4, 'cards com ícone de status colorido e barra de proporção')
     heads = cabecalhos(pg)
     print('      colunas:', heads)
     ok(heads[:4] == ['Funcionais', '1+ câm. c/ falha', '100% offline', 'Erro SD'] and heads[-6:] == [str(c) for c in range(21, 27)], 'cabeçalhos curtos (Funcionais … Erro SD, 21 … 26)')
@@ -162,7 +171,7 @@ with sync_playwright() as p:
     print('      estilo:', est)
     ok(est['sh'] <= est['ch'] + 1, 'tabela sem rolagem interna')
     ok(est['cor'] == 'rgb(71, 85, 105)' and est['peso'] == ['400', '400', '400'] and est['linhaV'] == '0px', 'números em cinza #475569, sem negrito em Veículos/Total, sem linhas verticais internas')
-    ok(est['al'] == 'center' and 'tabular-nums' in est['num'] and 11 <= est['fs'] <= 12.5 and 21 <= est['row'] <= 24.5, f'linhas compactas ({est["row"]}px, fonte {est["fs"]}px), números centralizados')
+    ok(est['al'] == 'center' and 'tabular-nums' in est['num'] and 12 <= est['fs'] <= 13.5 and 28 <= est['row'] <= 34, f'linhas confortáveis a 1920x1080 ({est["row"]}px, fonte {est["fs"]}px), números centralizados')
     ok(est['s'] != est['c'] and est['s'] == est['z'] and est['sep'] == '1px', 'blocos com tom de fundo próprio, separadores finos, sem zebra')
     pg.click('#v-tabela th[data-o="vt"]'); pg.wait_for_timeout(150)
     vals = [num(x.inner_text()) for x in pg.query_selector_all('#v-tabela tbody tr td:nth-child(2)')]
@@ -368,14 +377,19 @@ with sync_playwright() as p:
     nt, nomet = gerar_os('', raiz / 'docs' / 'OS_exemplo_todas.xlsx')
     dt = verificar_os(raiz / 'docs' / 'OS_exemplo_todas.xlsx', CAMS, f'OS todas as câmeras ({nomet})')
     ok(len(dt) == nt, f'OS todas: {nt} veículos')
-    # celular: dica da aba acima do ícone, sobre a tabela
+    # celular: barra inferior com rótulos; tema escuro nas telas principais
     pg.set_viewport_size({'width': 390, 'height': 844}); pg.click('#nav-visao'); pg.wait_for_selector('#v-tabela .gt'); pg.wait_for_timeout(400)
-    pg.evaluate("window.scrollTo(0, document.body.scrollHeight)"); pg.wait_for_timeout(200)
-    pg.hover('#nav-matriz'); pg.wait_for_timeout(250)
-    sobre = pg.evaluate("""() => { const t = document.getElementById('nav-tip').getBoundingClientRect(), tb = document.querySelector('#v-tabela').getBoundingClientRect();
-        return [t.top >= tb.top && t.bottom <= tb.bottom + 40, getComputedStyle(document.getElementById('nav-tip')).opacity]; }""")
-    ok(sobre[1] == '1', f'celular: dica da aba visível por cima dos dados (sobre a tabela: {sobre[0]})')
-    pg.screenshot(path=str(out / f'{pref}_1f_dica_aba_sobre_dados.png'))
+    ok(pg.evaluate("[...document.querySelectorAll('.nav-rot')].every((r) => r.getBoundingClientRect().width > 20)"), 'celular: menu inferior com rótulos visíveis')
+    pg.screenshot(path=str(out / f'{pref}_vp_390x844_visao_tela.png'))
+    for tema in ('escuro', 'claro'):
+        pg.evaluate(f"localStorage.setItem('cftv-tema', '{tema}')")
+        for w, h in VIEWPORTS:
+            pg.set_viewport_size({'width': w, 'height': h})
+            for aba in ('', '#matriz'):
+                pg.goto(url.split('#')[0] + aba, wait_until='networkidle'); pg.wait_for_selector('.st' if aba else '#v-tabela .gt'); pg.mouse.move(2, h - 2); pg.wait_for_timeout(350)
+                if tema == 'escuro':
+                    pg.screenshot(path=str(out / f'{pref}_tema_escuro_{w}x{h}_{"matriz" if aba else "visao"}.png'), full_page=(w < 641))
+    pg.set_viewport_size({'width': 1920, 'height': 1080})
     pg.click('#nav-matriz'); pg.wait_for_selector('.st'); pg.wait_for_timeout(300)
     # celular: painel como gaveta
     pg.set_viewport_size({'width': 390, 'height': 844}); pg.wait_for_timeout(300)

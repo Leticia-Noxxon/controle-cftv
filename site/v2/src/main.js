@@ -3,46 +3,39 @@ import { D, carregar, carregarCamera, dmy, esc, ICONE, camNome, GRUPO_METROPOLE,
 import { paginaVisao } from './visao.js';
 import { paginaMatriz } from './matriz.js';
 import { calendario } from './calendario.js';
+import { logoOS } from './logo.js';
 
 // Filtros compartilhados entre as abas. Visão geral: empresa, câmera, prefixo, período. Matriz: empresa, câmera, mês.
 export const F = { empresa: '', camera: '', prefixo: '', de: '', ate: '', mes: '' };
 let carregado = false;
-const ABAS = { visao: { titulo: 'Visão geral', icone: ICONE.tabela }, matriz: { titulo: 'Matriz', icone: ICONE.matriz } };
+const ABAS = { visao: { titulo: 'Visão geral', icone: ICONE.painel }, matriz: { titulo: 'Matriz diária', icone: ICONE.calgrade } };
+
+// Tema claro/escuro: localStorage 'cftv-tema'; padrão = preferência do sistema (aplicado já no index.html)
+const temaAtual = () => document.documentElement.dataset.tema || 'claro';
+function alternarTema() {
+  const novo = temaAtual() === 'escuro' ? 'claro' : 'escuro';
+  document.documentElement.dataset.tema = novo;
+  try { localStorage.setItem('cftv-tema', novo); } catch (e) { /* sem armazenamento */ }
+  const b = document.getElementById('tema-btn');
+  if (b) { b.innerHTML = novo === 'escuro' ? ICONE.solar : ICONE.lua; b.title = novo === 'escuro' ? 'Usar tema claro' : 'Usar tema escuro'; b.setAttribute('aria-label', b.title); b.setAttribute('aria-pressed', String(novo === 'escuro')); }
+  window.dispatchEvent(new Event('tema'));
+}
 
 // Cabeçalho em barra: marca (ícone de OS) + título à esquerda, filtros à direita, centralizados na vertical.
-// Barra lateral com as abas; a dica do nome da aba é um elemento fixo no <body> (fica acima de tudo).
-const MARCA = `<svg class="marca-ic" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M9 4h6"/><path d="m9 13 2 2 4-4"/></svg>`;
-function dicaAba(b, mostrar) {
-  let t = document.getElementById('nav-tip');
-  if (!t) { t = Object.assign(document.createElement('div'), { id: 'nav-tip', className: 'nav-tip' }); t.setAttribute('role', 'tooltip'); document.body.appendChild(t); }
-  if (!mostrar) { t.classList.remove('vis'); return; }
-  t.textContent = b.dataset.tip;
-  const r = b.getBoundingClientRect();
-  const lado = innerWidth <= 640; // celular: barra embaixo, dica acima do ícone
-  t.classList.toggle('acima', lado);
-  t.classList.add('vis');
-  t.style.left = `${lado ? Math.max(8, Math.min(r.left + r.width / 2 - t.offsetWidth / 2, innerWidth - t.offsetWidth - 8)) : r.right + 10}px`;
-  t.style.top = `${lado ? r.top - t.offsetHeight - 8 : r.top + r.height / 2 - t.offsetHeight / 2}px`;
-}
+// Barra lateral com a marca OS e as abas com rótulo visível (sem depender de dica).
 function cabecalho(aba) {
-  document.getElementById('topo').innerHTML = `<div class="marca"><span class="marca-box" title="Ordem de serviço · Controle de CFTV">${MARCA}</span><h1 class="titulo">Controle de CFTV</h1></div><div class="topo-filtros" id="topo-filtros"></div>`;
+  document.getElementById('topo').innerHTML = `<div class="marca">${logoOS()}<h1 class="titulo">Controle de CFTV</h1><span class="migalha">${ABAS[aba].titulo}</span></div>
+    <div class="topo-dir"><div class="topo-filtros" id="topo-filtros"></div><button class="btn-tema" id="tema-btn" type="button" title="${temaAtual() === 'escuro' ? 'Usar tema claro' : 'Usar tema escuro'}" aria-label="${temaAtual() === 'escuro' ? 'Usar tema claro' : 'Usar tema escuro'}" aria-pressed="${temaAtual() === 'escuro'}">${temaAtual() === 'escuro' ? ICONE.solar : ICONE.lua}</button></div>`;
   const upd = document.getElementById('upd');
   upd.className = `atualizacao${carregado ? ' ok' : ''}`;
   upd.innerHTML = carregado ? `<i class="pt"></i>Última atualização ${dmy(D.meta.atualizacao.slice(0, 10))} ${D.meta.atualizacao.slice(11, 16)}` : '<i class="pt"></i>Carregando…';
   upd.title = 'Horário do registro mais recente nos dados';
-  document.getElementById('lateral').innerHTML = `<nav class="nav-pill" aria-label="Abas">${Object.entries(ABAS).map(([k, a]) => `<button class="nav-b${k === aba ? ' ativo' : ''}" id="nav-${k}" data-tip="${a.titulo}" aria-label="${a.titulo}" ${k === aba ? 'aria-current="page"' : ''}>${a.icone}<span class="nav-rot">${a.titulo}</span></button>`).join('')}</nav>`;
+  document.getElementById('tema-btn').onclick = alternarTema;
+  document.getElementById('lateral').innerHTML = `<div class="marca-lat">${logoOS()}<div class="marca-txt"><b>OS</b><span>Controle CFTV</span></div></div>
+    <div class="nav-sec">Painéis</div><nav class="nav-pill" aria-label="Abas">${Object.entries(ABAS).map(([k, a]) => `<button class="nav-b${k === aba ? ' ativo' : ''}" id="nav-${k}" data-tip="${a.titulo}" aria-label="${a.titulo}" ${k === aba ? 'aria-current="page"' : ''}>${a.icone}<span class="nav-rot">${a.titulo}</span></button>`).join('')}</nav>
+    <div class="leg-lat" aria-label="Legenda de status"><h4>Status</h4>${[['on', 'Funcional'], ['fa', '1+ câm. com problema'], ['off', '100% Offline'], ['sd', 'Erro de SD'], ['nd', 'Sem conexão']].map(([k, r]) => `<div><i style="background:var(--${k === 'nd' ? 'c-nd' : `c-${k}`})"></i>${r}</div>`).join('')}</div>`;
   document.getElementById('nav-visao').onclick = () => { location.hash = ''; };
   document.getElementById('nav-matriz').onclick = () => { location.hash = 'matriz'; };
-  document.querySelectorAll('.nav-b').forEach((b) => {
-    let t = 0;
-    b.addEventListener('mouseenter', () => dicaAba(b, true));
-    b.addEventListener('mouseleave', () => dicaAba(b, false));
-    b.addEventListener('focus', () => { if (b.matches(':focus-visible')) dicaAba(b, true); });
-    b.addEventListener('blur', () => dicaAba(b, false));
-    b.addEventListener('click', () => dicaAba(b, false));
-    b.addEventListener('touchstart', () => { t = setTimeout(() => dicaAba(b, true), 450); }, { passive: true });
-    b.addEventListener('touchend', () => { clearTimeout(t); setTimeout(() => dicaAba(b, false), 1200); });
-  });
 }
 
 // Filtros aplicados automaticamente, na linha do título. campos: empresa, camera, prefixo, periodo, mes. extra: HTML à direita.
@@ -54,7 +47,7 @@ export function barraFiltros(campos, aoFiltrar, extra = '') {
     <div class="campo"><label for="f-camera">Câmera</label><select id="f-camera" class="w170"><option value="">Todas</option>${D.cameras.map((c) => `<option value="${c}" ${F.camera === String(c) ? 'selected' : ''}>${esc(camNome(c))}</option>`).join('')}</select></div>
     ${tem('prefixo') ? `<div class="campo"><label for="f-prefixo">Prefixo</label><input id="f-prefixo" class="w120" type="search" inputmode="numeric" placeholder="Ex.: 10003" value="${esc(F.prefixo)}" /></div>` : ''}
     ${tem('periodo') ? `<div class="campo"><span class="rot" id="rot-periodo">Período</span><div id="f-periodo"></div></div>` : ''}
-    ${tem('mes') ? `<div class="campo"><label for="f-mes">Mês</label><select id="f-mes" class="w170">${D.meses.slice().reverse().map((m) => `<option value="${m}" ${F.mes === m ? 'selected' : ''}>${nomeMes(m)}</option>`).join('')}</select></div>` : ''}
+    ${tem('mes') ? `<div class="campo"><label for="f-mes">Mês</label><select id="f-mes" class="w-mes">${D.meses.slice().reverse().map((m) => `<option value="${m}" ${F.mes === m ? 'selected' : ''}>${nomeMes(m)}</option>`).join('')}</select></div>` : ''}
     ${extra ? `<div class="campo campo-extra">${extra}</div>` : ''}</div>`;
   const aplicar = async () => {
     F.empresa = el.querySelector('#f-empresa').value;

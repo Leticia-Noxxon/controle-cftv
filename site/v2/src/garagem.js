@@ -10,7 +10,9 @@ const CAT_CAM = { on: ['d-on', 'Funcional'], fa: ['d-sd', 'Erro de SD'], off: ['
 const G = { ord: { k: 'sit', dir: 1 }, sel: null, aba: 'grafico', modo: 'veic' };
 const PESO = { off: 0, fa: 1, sd: 2, on: 3, nd: 4 };
 // cores do gráfico (saturadas o bastante para distinguir; mesma ordem de gravidade)
-export const COR_SERIE = { on: '#2F9E62', fa: '#E08A00', sd: '#7C5CD6', off: '#D64545' };
+// Cores das séries lidas do tema atual (claro/escuro): --c-on, --c-fa, --c-sd, --c-off
+const corTema = (k) => getComputedStyle(document.documentElement).getPropertyValue(`--c-${k}`).trim();
+export const COR_SERIE = { get on() { return corTema('on'); }, get fa() { return corTema('fa'); }, get sd() { return corTema('sd'); }, get off() { return corTema('off'); } };
 
 export function fecharModal() {
   if (document.querySelector('#modal .lado:not(.oculto)')) fecharPainel();

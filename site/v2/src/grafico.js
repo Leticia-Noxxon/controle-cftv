@@ -32,7 +32,7 @@ export function graficoLinhas(el, datas, series, unidade, eixoY = '') {
     <g class="grade-g">${grades.map((v) => `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}"/><text x="${m.l - 8}" y="${y(v) + 3.5}" text-anchor="end">${curto(v)}</text>`).join('')}${datas.map((d, j) => ((n - 1 - j) % cada === 0 ? `<line class="gv" x1="${x(j)}" x2="${x(j)}" y1="${m.t}" y2="${m.t + h}"/>` : '')).join('')}</g>
     ${eixoY ? `<text class="eixo-t" transform="translate(12 ${m.t + h / 2}) rotate(-90)" text-anchor="middle">${eixoY}</text>` : ''}
     <g class="eixo-x">${rotX}</g>${linhas}
-    <g class="guia" style="display:none"><line y1="${m.t}" y2="${m.t + h}"/>${series.map((s) => `<circle r="4" style="fill:#fff;stroke:${s.cor}"/>`).join('')}</g>
+    <g class="guia" style="display:none"><line y1="${m.t}" y2="${m.t + h}"/>${series.map((s) => `<circle r="4" style="fill:var(--surface);stroke:${s.cor}"/>`).join('')}</g>
     <rect class="capta" x="${m.l}" y="${m.t}" width="${w}" height="${h}" fill="transparent"/></svg>`;
   const svg = el.querySelector('svg'), guia = svg.querySelector('.guia'), tip = document.getElementById('tip');
   const mover = (ev) => {

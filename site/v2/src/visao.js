@@ -147,11 +147,12 @@ function cards() {
     return `<span class="delta ${cls}" title="${base}" aria-label="${d ? `${d > 0 ? 'aumento' : 'queda'} de ${fmtN(Math.abs(d))}` : 'sem variação'} em relação ao dia anterior">${d > 0 ? '↑' : d < 0 ? '↓' : '='} ${fmtN(Math.abs(d))}</span>`;
   };
   const pc = (n, t) => (t ? `<span class="pc" title="Participação no total">${fmtP((100 * n) / t)}</span>` : '');
-  const card = (ic, cls, rot, val, extra, k, dl) => `<div class="card kpi clic${S1.card === k ? ' ativo' : ''}" data-card="${k}" role="button" tabindex="0" aria-pressed="${S1.card === k}" title="${S1.card === k ? 'Clique para limpar' : 'Filtrar a tabela por este card'}"><div class="rot"><span class="ic ${cls}">${ic}</span><span class="rot-t">${rot}</span>${dl}</div><div class="val-l"><span class="val">${fmtN(val)}</span>${extra}</div></div>`;
-  document.getElementById('v-cards').innerHTML = card(ICONE.ok, 'c-on', 'Câmeras funcionais', a.on, pc(a.on, a.tot), 'on', delta('on', true))
-    + card(ICONE.sd, 'c-sd', 'Câmeras com erro de SD card', a.fa, pc(a.fa, a.tot), 'fa', delta('fa', false))
-    + card(ICONE.off, 'c-off', 'Câmeras 100% offline', a.off, pc(a.off, a.tot), 'off', delta('off', false))
-    + card(ICONE.alerta, 'c-veic', 'Veículos com falha', a.veic, pc(a.veic, a.n), 'veic', delta('veic', false));
+  // medidor: participação no total, na cor do status
+  const card = (ic, cls, rot, val, extra, k, dl, frac) => `<div class="card kpi clic${S1.card === k ? ' ativo' : ''}" data-card="${k}" role="button" tabindex="0" aria-pressed="${S1.card === k}" title="${S1.card === k ? 'Clique para limpar' : 'Filtrar a tabela por este card'}"><span class="ic ${cls}">${ic}</span><div class="rot"><span class="rot-t">${rot}</span></div>${dl}<div class="val-l"><span class="val">${fmtN(val)}</span>${extra}</div><div class="meter" aria-hidden="true"><i class="m-${cls.slice(2)}" style="width:${Math.max(0, Math.min(100, 100 * (frac || 0))).toFixed(1)}%"></i></div></div>`;
+  document.getElementById('v-cards').innerHTML = card(ICONE.ok, 'c-on', 'Câmeras funcionais', a.on, pc(a.on, a.tot), 'on', delta('on', true), a.tot ? a.on / a.tot : 0)
+    + card(ICONE.sd, 'c-sd', 'Câmeras com erro de SD card', a.fa, pc(a.fa, a.tot), 'fa', delta('fa', false), a.tot ? a.fa / a.tot : 0)
+    + card(ICONE.off, 'c-off', 'Câmeras 100% offline', a.off, pc(a.off, a.tot), 'off', delta('off', false), a.tot ? a.off / a.tot : 0)
+    + card(ICONE.alerta, 'c-veic', 'Veículos com falha', a.veic, pc(a.veic, a.n), 'veic', delta('veic', false), a.n ? a.veic / a.n : 0);
   document.querySelectorAll('#v-cards .clic').forEach((c) => {
     const alternar = () => { S1.card = S1.card === c.dataset.card ? '' : c.dataset.card; atualizar(); };
     c.addEventListener('click', alternar);
