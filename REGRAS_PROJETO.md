@@ -9,11 +9,11 @@ Herdadas do projeto anterior (`analise-cftv-manutencoes`) e adaptadas ao monitor
 5. No Relatório CFTV diário, “-” = câmera não instalada (não conta).
 6. Horários do BigQuery em UTC → exibir sempre em Brasília; dias parciais identificados.
 7. Estado: Online (tudo ok) / Erro SD/gravação (online com item em erro) / Offline.
-8. Matriz: cor = presença de estados no dia; vermelho sólido só se todos os registros forem offline; azul só para manutenção.
+8. Matriz: quadrado verde (nenhuma câmera com problema no dia), laranja (algumas), vermelho (todas); cinza = sem dados; ponto azul só para manutenção. Sem texto dentro dos quadrados.
 9. Células do formulário podem ter vários itens: separar, padronizar e manter o texto original.
 10. Recorrência na mesma câmera ≠ problema novo em outra câmera.
 11. Pendência detectada por palavras-chave, sempre com o trecho.
 12. Técnicos unificados só quando diferem por maiúsculas/minúsculas; sem ranking de técnicos.
 13. Distinguir dias corridos de dias com dado/registros.
 14. Não publicar IP de envio nem dados brutos; documentar premissas no README.
-15. Interface em português do Brasil, fundo branco, cores suaves, sem gradientes pesados nem sombras.
+15. Interface em português do Brasil, página única, fundo branco, cores suaves, sem negrito/sublinhado, sem textos explicativos na página (definições ficam no README).

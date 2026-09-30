@@ -1,127 +1,185 @@
 import '@fontsource/inter/400.css';
-import '@fontsource/inter/500.css';
-import '@fontsource/inter/600.css';
-import '@fontsource/montserrat/600.css';
 import './style.css';
-import { carregar } from './data.js';
-import { esc, dmy, dmyh, fmtN, CAMS, camNome, sem } from './util.js';
-import { viewSituacao } from './views/situacao.js';
-import { viewMatriz } from './views/matriz.js';
-import { viewProblemas } from './views/problemas.js';
-import { viewManutencoes } from './views/manutencoes.js';
-import { viewAnalises } from './views/analises.js';
-import { viewQualidade } from './views/qualidade.js';
-import { viewMetodologia } from './views/metodologia.js';
-import { fecharPainel } from './painel.js';
 
-const VIEWS = [
-  ['situacao', 'Situação atual', viewSituacao],
-  ['matriz', 'Matriz diária', viewMatriz],
-  ['problemas', 'Problemas em aberto', viewProblemas],
-  ['manutencoes', 'Manutenções', viewManutencoes],
-  ['analises', 'Análises', viewAnalises],
-  ['qualidade', 'Qualidade dos dados', viewQualidade],
-  ['metodologia', 'Como ler', viewMetodologia],
-];
+const base = import.meta.env.BASE_URL;
+const obter = (a) => fetch(`${base}data/${a}`).then((r) => { if (!r.ok) throw new Error(a); return r.json(); });
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmtN = (n) => Number(n).toLocaleString('pt-BR');
+const dmy = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : '');
+const POS = { 21: 'Frontal', 22: 'Frente', 23: 'Corredor 1', 24: 'Corredor 2', 25: 'Corredor 3', 26: 'Corredor 4' };
+const camNome = (c) => (POS[c] ? `Câmera ${c} · ${POS[c]}` : `Câmera id ${c}`);
+const catCod = (code) => (code === 'N' ? 'ok' : code === 'O' ? 'of' : 'fa');   // último estado: N online, O offline, 1-7 erro (SD)
 
-export const F = { q: '', empresa: '', garagem: '', camera: '', de: '', ate: '', status: '' };
-let D = null;
-let atual = 'situacao';
+const F = { empresa: '', camera: '', prefixo: '' };
+const ORD = { k: 'garagem', dir: 1 };
+let D;
 
-// Prefixo: aceita lista separada por vírgula/espaço; empresa/garagem: seleção exata
-export function veiculosFiltrados() {
-  const lista = F.q.split(/[\s,;]+/).filter(Boolean);
-  const cam = F.camera ? Number(F.camera) : null;
-  return D.veiculos.filter((v) => (!lista.length || lista.some((x) => String(v.p).includes(x)))
-    && (!F.empresa || v.empresa === F.empresa) && (!F.garagem || v.g === F.garagem) && (!cam || v.c.includes(cam)));
-}
-export const prefixoOk = (p) => {
-  const lista = F.q.split(/[\s,;]+/).filter(Boolean);
-  return !lista.length || lista.some((x) => String(p).includes(x));
-};
-export function descreverFiltros() {
-  const p = [];
-  if (F.q) p.push(`Prefixo: ${F.q}`);
-  if (F.empresa) p.push(`Empresa: ${F.empresa}`);
-  if (F.garagem) p.push(`Garagem: ${F.garagem}`);
-  if (F.camera) p.push(`Câmera: ${camNome(Number(F.camera))}`);
-  if (F.de || F.ate) p.push(`Período: ${F.de ? dmy(F.de) : 'início'} a ${F.ate ? dmy(F.ate) : 'fim'}`);
-  if (F.status) p.push(`Status: ${F.status}`);
-  return p.join(' · ') || 'Sem filtros';
+// Cor do dia: cada câmera com registro no dia conta como "com problema" se teve ao menos um registro offline ou com erro.
+// verde = nenhuma com problema; laranja = algumas; vermelho = todas as câmeras com registro no dia.
+function corDia(v, i) {
+  const cams = F.camera ? [F.camera] : Object.keys(v.k || {});
+  let com = 0, prob = 0;
+  cams.forEach((c) => { const m = Number(v.k?.[c]?.[i] || 0); if (m) { com += 1; if (m & 6) prob += 1; } });
+  if (!com) return 'n';
+  return prob === 0 ? 'v' : prob === com ? 'r' : 'l';
 }
 
-function montarFiltros() {
-  const diasComDado = D.meta.cobertura.map((c) => c.data);
-  const cams = [...CAMS, ...D.camerasExtras];
-  const el = document.getElementById('filtros');
-  el.innerHTML = `
-    <label>Prefixo<input type="search" id="f-q" placeholder="ex.: 10003 ou 10003, 20511" /></label>
-    <label>Empresa<select id="f-empresa"><option value="">Todas</option>${D.empresas.map((e) => `<option>${esc(e)}</option>`).join('')}</select></label>
-    <label>Garagem (formulário)<select id="f-garagem"><option value="">Todas</option>${D.garagens.map((g) => `<option>${esc(g)}</option>`).join('')}</select></label>
-    <label>Câmera<select id="f-camera"><option value="">Todas</option>${cams.map((c) => `<option value="${c}">${esc(camNome(c))}</option>`).join('')}</select></label>
-    <label>De<input type="date" id="f-de" min="${diasComDado[0]}" max="2026-09-30" /></label>
-    <label>Até<input type="date" id="f-ate" min="${diasComDado[0]}" max="2026-09-30" /></label>
-    <label>Status<select id="f-status"><option value="">Todos</option><option value="problema">Com problema</option><option value="fa">Erro SD/gravação</option><option value="of">Offline</option><option value="ok">Online (sem problema)</option></select></label>
-    <button class="btn" id="f-limpar">Limpar filtros</button>
-    <span class="sutil" id="f-desc" style="font-size:.76rem"></span>`;
-  const ids = ['q', 'empresa', 'garagem', 'camera', 'de', 'ate', 'status'];
-  let t = null;
-  ids.forEach((k) => {
-    const inp = document.getElementById(`f-${k}`);
-    inp.addEventListener(k === 'q' ? 'input' : 'change', () => {
-      F[k] = inp.value.trim();
-      clearTimeout(t); t = setTimeout(render, k === 'q' ? 250 : 0);
+function filtrados() {
+  const q = F.prefixo.split(/[\s,;]+/).filter(Boolean);
+  return D.veiculos.filter((v) => (!F.empresa || v.empresa === F.empresa) && (!F.camera || v.c.includes(Number(F.camera)))
+    && (!q.length || q.some((x) => String(v.p).includes(x))));
+}
+
+function cards(vs) {
+  let ok = 0, sd = 0, of = 0, veic = 0;
+  vs.forEach((v) => {
+    let falha = false;
+    Object.entries(v.u).forEach(([c, [code]]) => {
+      if (F.camera && c !== F.camera) return;
+      const k = catCod(code);
+      if (k === 'ok') ok += 1; else { falha = true; if (k === 'of') of += 1; else sd += 1; }
     });
+    if (falha) veic += 1;
   });
-  document.getElementById('f-limpar').addEventListener('click', () => { ids.forEach((k) => { F[k] = ''; document.getElementById(`f-${k}`).value = ''; }); render(); });
+  const card = (cor, rot, val) => `<div class="card"><div class="rot"><span class="ponto" style="background:${cor}"></span>${rot}</div><div class="val">${fmtN(val)}</div></div>`;
+  document.getElementById('cards').innerHTML = card('var(--verde)', 'Câmeras funcionais', ok) + card('var(--laranja)', 'Câmeras com erro de SD card', sd)
+    + card('var(--vermelho)', 'Câmeras 100% offline', of) + card('#d1d5db', 'Veículos com falha', veic);
 }
 
-function montarMenu() {
-  const nav = document.getElementById('menu');
-  nav.innerHTML = VIEWS.map(([id, nome]) => `<button data-v="${id}">${esc(nome)}</button>`).join('');
-  nav.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => { location.hash = b.dataset.v; }));
-  window.addEventListener('hashchange', () => { const h = location.hash.slice(1); if (VIEWS.some((v) => v[0] === h)) { atual = h; render(); } });
-  const h = location.hash.slice(1);
-  if (VIEWS.some((v) => v[0] === h)) atual = h;
-}
-
-export function render() {
-  document.querySelectorAll('#menu button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === atual));
-  document.getElementById('f-desc').textContent = descreverFiltros() === 'Sem filtros' ? '' : `Filtros ativos — ${descreverFiltros()}`;
-  const el = document.getElementById('conteudo');
-  fecharPainel();
-  const v = VIEWS.find((x) => x[0] === atual);
-  el.innerHTML = '';
-  v[2](el, D);
-}
-
-function tema() {
-  const salvo = localStorage.getItem('tema-cftv');
-  if (salvo) document.documentElement.dataset.tema = salvo;
-  document.getElementById('btn-tema').addEventListener('click', () => {
-    const t = document.documentElement.dataset.tema === 'escuro' ? 'claro' : 'escuro';
-    document.documentElement.dataset.tema = t; localStorage.setItem('tema-cftv', t);
+function matriz(vs) {
+  const idx = D.idxDias;
+  const cols = `160px 75px 90px repeat(${idx.length}, var(--passo)) 1fr`;
+  const linhas = vs.map((v) => {
+    const cores = idx.map((i) => corDia(v, i));
+    const com = cores.filter((c) => c !== 'n').length;
+    return { v, cores, disp: com ? (100 * cores.filter((c) => c === 'v').length) / com : null };
   });
-  document.getElementById('btn-imprimir').addEventListener('click', () => window.print());
+  const val = { garagem: (r) => r.v.g || '\uffff', prefixo: (r) => r.v.p, disp: (r) => (r.disp == null ? 999 : r.disp) };
+  linhas.sort((a, b) => {
+    const x = val[ORD.k](a), y = val[ORD.k](b);
+    const c = typeof x === 'number' ? x - y : x.localeCompare(y, 'pt-BR', { numeric: true });
+    return (c || a.v.p - b.v.p) * (c ? ORD.dir : 1);
+  });
+  const seta = (k) => (ORD.k === k ? (ORD.dir > 0 ? ' ↑' : ' ↓') : '');
+  const el = document.getElementById('matriz');
+  el.innerHTML = `<div class="mw" id="mw"><div class="linha cab" style="grid-template-columns:${cols};width:max-content;min-width:100%">
+      <div class="fixa f1 ord" data-o="garagem">Garagem${seta('garagem')}</div><div class="fixa f2 ord" data-o="prefixo">Prefixo${seta('prefixo')}</div><div class="fixa f3 ord" data-o="disp">Disponibilidade${seta('disp')}</div>
+      ${idx.map((i) => `<div class="dia">${D.dias[i].slice(8, 10)}</div>`).join('')}<div></div></div>
+    <div class="corpo" id="corpo" style="position:relative;height:${linhas.length * 26}px"></div></div>${linhas.length ? '' : '<div class="vazio">Nenhum veículo.</div>'}`;
+  el.querySelectorAll('.ord').forEach((h) => h.addEventListener('click', () => { const k = h.dataset.o; ORD.dir = ORD.k === k ? -ORD.dir : 1; ORD.k = k; matriz(vs); }));
+  const mw = el.querySelector('#mw'); const corpo = el.querySelector('#corpo');
+  const desenhar = () => {
+    const topo = Math.max(0, Math.floor((mw.scrollTop - 32) / 26) - 10);
+    const n = Math.ceil(mw.clientHeight / 26) + 20;
+    corpo.innerHTML = linhas.slice(topo, topo + n).map((r, j) => `<div class="linha" style="grid-template-columns:${cols};position:absolute;top:${(topo + j) * 26}px;width:max-content;min-width:100%" data-p="${r.v.p}">
+      <div class="fixa f1">${esc(r.v.g || '—')}</div><div class="fixa f2">${r.v.p}</div><div class="fixa f3">${r.disp == null ? '—' : `${r.disp.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}%`}</div>
+      ${idx.map((i, k) => `<div><div class="q ${r.cores[k]}" data-i="${i}">${r.v.mv[i] ? '<span class="dot"></span>' : ''}</div></div>`).join('')}<div></div></div>`).join('');
+  };
+  desenhar();
+  mw.addEventListener('scroll', () => requestAnimationFrame(desenhar));
+  const pop = document.getElementById('pop');
+  corpo.addEventListener('mouseover', (e) => {
+    const dot = e.target.closest('.dot');
+    if (!dot || pop.classList.contains('fixo')) return;
+    mostrarPop(dot, false);
+  });
+  corpo.addEventListener('mouseout', (e) => { if (e.target.closest('.dot') && !pop.classList.contains('fixo')) pop.style.display = 'none'; });
+  corpo.addEventListener('click', (e) => {
+    const dot = e.target.closest('.dot');
+    if (dot) { e.stopPropagation(); mostrarPop(dot, true); return; }
+    const q = e.target.closest('.q');
+    if (!q || q.classList.contains('n')) return;
+    fecharPop();
+    abrirDia(Number(q.closest('.linha').dataset.p), Number(q.dataset.i));
+  });
 }
+
+function resumoManut(e) {
+  const forms = e.forms.map((id) => D.formPorId.get(id)).filter(Boolean);
+  return forms.map((f) => {
+    const pos = f.posicoes.filter((p) => p.problemas.length || p.acoes.length);
+    const probs = pos.filter((p) => p.problemas.length).map((p) => `${p.camera ? `Câm ${p.camera}` : esc(p.posicao)}: ${esc(p.problemas.map((x) => x.item).join(', '))}`);
+    const acoes = pos.filter((p) => p.acoes.length).map((p) => `${p.camera ? `Câm ${p.camera}` : esc(p.posicao)}: ${esc(p.acoes.map((x) => x.item).join(', '))}`);
+    return `<div class="item"><p>${dmy(f.data)} ${f.hora} · ${esc(f.tecnico)}</p>
+      <p><span class="sub">Problemas</span> ${probs.join(' · ') || '—'}</p>
+      <p><span class="sub">Ações</span> ${acoes.join(' · ') || '—'}</p>
+      <p><span class="sub">Câmeras</span> ${esc(f.cameras_formulario.join(', ') || '—')}</p></div>`;
+  }).join('');
+}
+
+function mostrarPop(dot, fixo) {
+  const v = D.porPrefixo.get(Number(dot.closest('.linha').dataset.p));
+  const i = Number(dot.parentElement.dataset.i);
+  const pop = document.getElementById('pop');
+  pop.innerHTML = (v.mv[i] || []).map((k) => resumoManut(D.eventos[k])).join('');
+  pop.classList.toggle('fixo', fixo);
+  pop.style.display = 'block';
+  const r = dot.getBoundingClientRect();
+  const w = pop.offsetWidth, h = pop.offsetHeight;
+  pop.style.left = `${Math.max(8, Math.min(r.right + 8, innerWidth - w - 8))}px`;
+  pop.style.top = `${Math.max(8, Math.min(r.top - 4, innerHeight - h - 8))}px`;
+}
+function fecharPop() { const p = document.getElementById('pop'); p.style.display = 'none'; p.classList.remove('fixo'); }
+
+const cacheDet = new Map();
+const detalhe = (p) => {
+  const k = String(p % 64).padStart(2, '0');
+  if (!cacheDet.has(k)) cacheDet.set(k, obter(`detalhe/${k}.json`));
+  return cacheDet.get(k).then((d) => d[String(p)] || {});
+};
+
+async function abrirDia(p, i) {
+  const v = D.porPrefixo.get(p); const dia = D.dias[i];
+  const evs = (v.mv[i] || []).map((k) => D.eventos[k]);
+  const corpo = document.getElementById('painel-corpo');
+  const render = (det) => {
+    const cams = v.c.map((c) => {
+      const segs = det?.[c]?.[dia] || [];
+      const n = { ok: 0, fa: 0, of: 0 };
+      segs.forEach(([, , code, q]) => { n[catCod(code)] += q; });
+      const tot = n.ok + n.fa + n.of;
+      let txt;
+      if (!det) txt = '…';
+      else if (!tot) txt = 'Sem registro';
+      else {
+        const partes = [['ok', 'Online', 'var(--verde)'], ['fa', 'Erro de SD card', 'var(--laranja)'], ['of', 'Offline', 'var(--vermelho)']].filter(([k]) => n[k]);
+        txt = partes.length === 1 ? `<span class="ponto" style="background:${partes[0][2]}"></span>${partes[0][1]}`
+          : partes.map(([k, nome, cor]) => `<span class="ponto" style="background:${cor}"></span>${nome} ${Math.round((100 * n[k]) / tot)}%`).join(' ');
+      }
+      return `<div class="cam"><span>${esc(camNome(c))}</span><span class="est">${txt}</span></div>`;
+    }).join('');
+    corpo.innerHTML = `<p class="tit">Prefixo ${p} · ${dmy(dia)}</p><p class="sub">${esc(v.empresa)}${v.g ? ` · ${esc(v.g)}` : ''}</p>
+      <div class="bloco"><div class="lbl">Câmeras</div>${cams}</div>
+      ${evs.length ? `<div class="bloco"><div class="lbl">Manutenção</div>${evs.map(resumoManut).join('')}</div>` : ''}`;
+  };
+  render(null);
+  const painel = document.getElementById('painel');
+  painel.classList.add('aberto'); painel.setAttribute('aria-hidden', 'false');
+  const det = await detalhe(p);
+  if (document.querySelector('#painel-corpo .tit')?.textContent === `Prefixo ${p} · ${dmy(dia)}`) render(det);
+}
+function fecharPainel() { const p = document.getElementById('painel'); p.classList.remove('aberto'); p.setAttribute('aria-hidden', 'true'); }
+
+function atualizar() { const vs = filtrados(); cards(vs); matriz(vs); }
 
 async function iniciar() {
-  tema();
-  try {
-    D = await carregar();
-  } catch (e) {
-    document.getElementById('conteudo').innerHTML = `<div class="aviso">Não foi possível carregar os dados: ${esc(e.message)}</div>`;
-    return;
-  }
-  const m = D.meta.monitoramento;
-  document.getElementById('subtitulo').textContent = `Monitoramento ${dmyh(m.inicio)} a ${dmyh(m.fim)} (Brasília)`;
-  document.getElementById('rodape').innerHTML = `Fontes: ${m.arquivos.map(esc).join(', ')} · ${esc(D.meta.formulario.arquivo)} · ${esc(D.meta.relatorio?.arquivo || '')} — ${fmtN(m.registros_validos)} registros horários, ${fmtN(m.prefixos)} prefixos, ${fmtN(m.cameras)} câmeras. Dados gerados em ${dmyh(D.meta.gerado_em)}. Horários no fuso de Brasília.`;
-  montarMenu();
-  montarFiltros();
-  document.getElementById('painel-fechar').addEventListener('click', fecharPainel);
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') fecharPainel(); });
-  render();
+  const [meta, frota, man] = await Promise.all([obter('meta.json'), obter('frota.json'), obter('manutencoes.json')]);
+  const comDado = new Set(meta.cobertura.map((c) => c.data));
+  D = { dias: frota.dias, eventos: man.eventos, formPorId: new Map(man.formularios.map((f) => [f.id, f])) };
+  D.idxDias = frota.dias.map((d, i) => i).filter((i) => comDado.has(frota.dias[i]));
+  D.veiculos = frota.veiculos.map((v) => ({ ...v, empresa: v.e == null ? '—' : frota.empresas[v.e] }));
+  D.porPrefixo = new Map(D.veiculos.map((v) => [v.p, v]));
+  const selE = document.getElementById('f-empresa');
+  selE.innerHTML += frota.empresas.map((e) => `<option>${esc(e)}</option>`).join('');
+  const cams = [...new Set(D.veiculos.flatMap((v) => v.c))].sort((a, b) => a - b);
+  document.getElementById('f-camera').innerHTML += cams.map((c) => `<option value="${c}">${esc(camNome(c))}</option>`).join('');
+  let t;
+  [['empresa', 'change'], ['camera', 'change'], ['prefixo', 'input']].forEach(([k, ev]) => document.getElementById(`f-${k}`).addEventListener(ev, (e) => {
+    F[k] = e.target.value.trim(); clearTimeout(t); t = setTimeout(atualizar, k === 'prefixo' ? 200 : 0);
+  }));
+  document.getElementById('fechar').addEventListener('click', fecharPainel);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { fecharPainel(); fecharPop(); } });
+  document.addEventListener('click', (e) => { if (!e.target.closest('#pop') && !e.target.closest('.dot')) fecharPop(); });
+  atualizar();
 }
-export const dados = () => D;
-export const buscaTexto = sem;
-iniciar();
+iniciar().catch((e) => { document.getElementById('matriz').innerHTML = `<div class="vazio">Não foi possível carregar os dados (${esc(e.message)}).</div>`; });

@@ -1,13 +1,22 @@
 # Controle de CFTV
 
-Painel estático (GitHub Pages) com a situação das câmeras de CFTV da frota:
+Painel estático de página única (GitHub Pages): https://leticia-noxxon.github.io/controle-cftv/
 
-1. **Situação atual**: câmeras online, com erro de cartão SD e offline — no total, por câmera (21 a 26) e por prefixo.
-2. **Matriz diária** (data × prefixo): cor pelos estados do dia (todas OK / alguma câmera com problema / todas offline), com as câmeras e o problema no detalhe.
-3. **Problemas em aberto**: desde quando cada câmera está com problema (dias consecutivos) e há quantos dias, para a reunião de cronograma de correção.
-4. **Manutenções**: veículos atendidos, se precisavam (CFTV antes da visita), se resolveu (CFTV depois), problemas relatados e ações realizadas.
+- **Filtros**: Empresa, Câmera e Prefixo (aceita parte do número ou lista separada por vírgula).
+- **Cards** (estado do último registro de cada câmera; reagem aos filtros):
+  - *Câmeras funcionais* = último registro online, com SD/login/gravação ok.
+  - *Câmeras com erro de SD card* = último registro online com SD em erro (nos dados, sempre SD + gravação).
+  - *Câmeras 100% offline* = último registro offline.
+  - *Veículos com falha* = prefixos com pelo menos uma câmera (das filtradas) com erro de SD ou offline no último registro.
+- **Matriz** Garagem × Prefixo × Disponibilidade × um quadrado por data (01 a 24/09, dias com monitoramento). Colunas fixas à esquerda e rolagem horizontal/vertical; clique nos títulos Garagem/Prefixo/Disponibilidade para ordenar.
+  - Cor do quadrado (vale para as câmeras filtradas): cada câmera com registro no dia é considerada **com problema** se teve pelo menos um registro offline ou com erro de SD no dia.
+    **Verde** = nenhuma câmera com problema; **laranja** = uma ou mais com problema, mas não todas; **vermelho** = todas as câmeras com registro no dia com problema; **cinza** = sem registro no dia (nunca conta como offline). Com o filtro de uma câmera, o quadrado é verde ou vermelho.
+  - **Ponto azul** no canto do quadrado = houve manutenção (formulário) naquele veículo/dia; passar o mouse ou clicar mostra data/hora, técnico, problemas, ações e câmeras do formulário.
+  - **Clique no quadrado** = painel com o estado de cada câmera naquele dia (online / erro de SD card / offline, com a proporção dos registros quando houve mais de um estado), empresa, garagem e manutenções do dia.
+- **Disponibilidade** (coluna da matriz) = **% de dias verdes** do prefixo = dias em que todas as câmeras (filtradas) ficaram online e sem erro o dia todo ÷ dias com registro, de 01/09 a 24/09. Dias sem registro não entram na conta.
+- Garagem vem do formulário de manutenção (último formulário do prefixo); prefixos sem formulário aparecem com “—”.
 
-Também tem análises por câmera, empresa, garagem e técnico (sem ranking), uma área de qualidade dos dados, filtros (prefixo, empresa, garagem, câmera, período, status), tabelas ordenáveis, exportação para Excel, impressão/PDF e tema escuro opcional.
+As regras de dados abaixo (estado dos registros, fuso, limpeza, problemas em aberto, avaliação antes/depois das manutenções) continuam sendo calculadas por `scripts/atualizar_dados.py` e publicadas em `site/public/data/`, mesmo que a página atual mostre só os cards e a matriz.
 
 ## Fontes de dados
 
@@ -21,7 +30,7 @@ Também tem análises por câmera, empresa, garagem e técnico (sem ranking), um
 
 Os arquivos brutos **não são versionados** (ficam em `data/raw/`, ignorado pelo git). As somas SHA-256 dos arquivos usados estão em `data/CHECKSUMS_SHA256_raw.txt`.
 
-## Premissas e regras (documentadas também na aba “Como ler”)
+## Premissas e regras dos dados
 
 ### Câmeras
 `id_camera` 1001 = câmera 21 (Frontal), 1002 = 22 (Frente), 1003 = 23 (Corredor 1), 1004 = 24 (Corredor 2), 1005 = 25 (Corredor 3), 1006 = 26 (Corredor 4). O `id_camera` 1007 aparece em um único prefixo (6001, NOXXONSAT; 3.885 registros) e é exibido como “id 1007 (sem mapeamento)”.
@@ -48,12 +57,6 @@ Os arquivos brutos **não são versionados** (ficam em `data/raw/`, ignorado pel
 - Latitude/longitude estão vazias em todo o arquivo (não usadas).
 - Formulário: 1.003 linhas, das quais **324 estão no layout antigo (colunas deslocadas uma posição, sem “Data de Envio”)** e são **cópias idênticas** de respostas já presentes → descartadas. Restam **679 formulários** de 595 prefixos (20/08 a 28/09/2026). A coluna “IP do Envio” não é publicada.
 - Técnicos: nomes que diferem só por maiúsculas/minúsculas são unificados (ex.: “Abner melo” → “Abner Melo”).
-
-### Matriz diária
-- Número = **disponibilidade do dia** = registros online sem erro ÷ todos os registros das câmeras do veículo no dia.
-- Cor = **quais estados ocorreram** no dia (presença, não proporção): verde = só online; degradês = combinações (verde→laranja, verde→vermelho, laranja→vermelho, verde→laranja→vermelho); **vermelho sólido = todos os registros do dia offline**; laranja sólido = só erro; cinza = sem dados. Faixa azul no topo = manutenção no dia (azul só para manutenção).
-- Modo “Câmeras com problema” mostra no lugar do número quais câmeras tiveram problema; o tooltip traz câmera, tipo de problema, período offline/erro e manutenção; o clique abre a linha do tempo horária por câmera com os horários originais.
-- Com o filtro de câmera, a cor representa só aquela câmera.
 
 ### Situação atual
 - Monitoramento: estado do **último registro** de cada câmera (17.720 câmeras). Câmeras sem registro no último dia (24/09) entram com o último estado conhecido e a data aparece; podem ser excluídas por uma opção.
@@ -85,9 +88,9 @@ Os arquivos brutos **não são versionados** (ficam em `data/raw/`, ignorado pel
 ```
 scripts/atualizar_dados.py      # script único: lê data/raw e gera site/public/data + data/processed
 scripts/pipeline/               # config, monitoramento (DuckDB), manutencao, relatorio, analise
-site/                           # Vite + JavaScript (sem framework); SheetJS para Excel
+site/                           # Vite + JavaScript (sem framework), página única
 site/public/data/               # dados publicados (meta, frota, problemas, manutencoes, detalhe/NN.json)
-tests/                          # pytest (regras) e captura de telas com Playwright
+tests/                          # pytest (regras) e captura de telas com Playwright (tests/capturas.py URL nome)
 ```
 
 Dados publicados: `meta.json` (cobertura por dia, verificações), `frota.json` (por prefixo: estado diário, câmeras, último estado, relatório 28/09), `problemas.json`, `manutencoes.json` (visitas + formulários sem o IP) e `detalhe/NN.json` (trechos de estado por câmera/dia com horários originais, agrupados por `prefixo % 64`).
