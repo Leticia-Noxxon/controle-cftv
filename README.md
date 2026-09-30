@@ -56,29 +56,78 @@ Filtros Empresa (com a opção METROPOLE), Câmera e Período (afetam tudo).
 
 https://leticia-noxxon.github.io/controle-cftv/v2/ usa o estilo do "Property Management Dashboard UI Kit" (Paperpillar) e os mesmos dados da versão principal (`../data/`). A versão principal não muda.
 
-- **Tela fixa (100dvh):** a página nunca rola, só as áreas internas (corpo das tabelas, painel, modais). A barra lateral tem duas abas, com dica ao passar o mouse, focar ou tocar e segurar. No celular ela vai para baixo, e a Visão geral alterna Tabela/Gráfico.
-- **Garagem/Empresa:** a garagem de cada veículo é a empresa do registro mais recente do prefixo, normalizada pelas tabelas `MAPA_EMPRESA` e `MAPA_FORMULARIO` em `site/v2/src/dados.js`. Não existe "Não informado". Via Sudeste Cursino e Sapopemba viram "Via Sudeste". O filtro mantém "METROPOLE (todas)".
-- **Rótulos:** Funcional, 100% Offline, Erro de SD card e/ou 1+ câmera com problema, Sem conexão.
+- **Layout:**
+  - Título "Controle de CFTV" com os filtros na mesma linha, à direita (Empresa, Câmera, Prefixo, Período / Mês).
+  - Sem subtítulos. "Última atualização" é uma pílula pequena fixa no canto inferior direito, nas duas abas.
+  - A Matriz ocupa a tela fixa (100dvh). A Visão geral pode rolar verticalmente para a tabela aparecer inteira, sem rolagem interna.
+  - A barra lateral tem duas abas, com dica ao passar o mouse, focar ou tocar e segurar. No celular ela vai para baixo.
+- **Período:** calendário próprio em popover, em pt-BR.
+  - Dois cliques escolhem um intervalo; dois cliques no mesmo dia escolhem um dia só.
+  - Atalhos Último dia e Últimos 7 dias, além de Limpar (também pelo × do campo).
+  - Só os dias com dados podem ser escolhidos.
+- **Garagem/Empresa:** a garagem de cada veículo é a empresa do registro mais recente do prefixo, normalizada pelas tabelas `MAPA_EMPRESA` e `MAPA_FORMULARIO` em `site/v2/src/dados.js`.
+  - Não existe "Não informado".
+  - Via Sudeste Cursino e Sapopemba viram "Via Sudeste".
+  - O filtro se chama "Empresa" e mantém a opção "METROPOLE (todas)".
+- **Status do dia (Matriz), por veículo, ou só pela câmera escolhida no filtro:**
+
+  | Status | Regra | Cor |
+  |---|---|---|
+  | Funcional | todos os registros do dia online e sem erro | verde |
+  | 100% Offline | todos os registros do dia offline | vermelho |
+  | Erro de SD | nenhum registro offline, mas algum com erro de SD card (a câmera está online) | roxo claro `#C7B8F5` |
+  | 1+ câm. com problema | há registro offline, mas não todos (conexão parcial ou variação) | âmbar |
+  | Sem conexão | nenhum registro no dia | cinza |
+
+- **Situação atual (Visão geral):** vale o último registro de cada câmera no período. É uma partição dos veículos:
+  - **Funcionais:** todas as câmeras funcionais.
+  - **1+ câm. c/ falha:** uma ou mais câmeras offline, mas não todas; pode haver erro de SD junto.
+  - **100% offline:** todas as câmeras offline.
+  - **Erro SD:** nenhuma câmera offline e uma ou mais com erro de SD.
+  - **Sem conexão:** nenhum registro no período (a coluna só aparece quando houver algum).
+  - O card "Veículos com falha" é a soma de 1+ câm. c/ falha, 100% offline e Erro SD.
 - **Aba Visão geral:**
-  - 4 cards; clicar num card filtra a tabela e o gráfico.
-  - Tabela por Garagem/Empresa, pelo último registro de cada câmera no período:
-    - alterna Veículo | Câmera;
-    - colunas ordenáveis e linha Total;
-    - exporta a visão atual para Excel;
-    - o botão Manutenção acrescenta Veículos atendidos, Reincidências, Atendimentos procedentes, Ocorrências solucionadas e Atendimentos improcedentes;
-    - clicar numa linha abre o detalhe da garagem: veículos e, ao clicar num deles, linha do tempo e manutenção.
-  - Gráfico "Evolução diária" com Funcional, 1+ câmera com problema e 100% Offline por dia.
+  - **Cards:** sem palavra de unidade. Cada card mostra a variação absoluta em relação ao dia anterior, com seta.
+    - A base é o fechamento do último dia do período (ou dos dados) comparado com o fechamento do dia anterior (último registro de cada câmera até aquele dia); fica na dica.
+    - Em Câmeras funcionais, subir é bom (verde) e descer é ruim (vermelho).
+    - Nos outros três cards, subir é ruim (vermelho) e descer é bom (verde).
+    - Clicar num card filtra a tabela.
+  - **Tabela "Conexão por Empresa":** largura total e sem rolagem interna.
+    - Cabeçalhos curtos, com a definição completa na dica: Veículos, Funcionais, 1+ câm. c/ falha, 100% offline, Erro SD e, no grupo "Veículos com falha por câmera", 21 a 26.
+    - Números alinhados à direita, separadores entre os grupos e linhas zebradas.
+    - Alterna Veículo | Câmera; colunas ordenáveis, linha Total e exportação para Excel.
+    - A chave **Manutenção** acrescenta Atendidos, Reincidências, Procedentes, Solucionados e Improcedentes.
+  - **Clique no nome da empresa:** abre um modal com o gráfico de evolução diária da empresa.
+    - Séries: Funcional `#2F9E62`, 1+ câm. com problema `#E08A00`, Erro de SD `#7C5CD6` e 100% Offline `#D64545`.
+    - Mostra área, grade, eixos, legenda, dica com os valores do dia e alterna Veículo | Câmera.
+    - A aba "Veículos" do modal traz a lista de veículos, com a linha do tempo e a manutenção de cada um.
+  - **Clique no resto da linha:** abre direto a lista de veículos.
 - **Aba Matriz:**
-  - Filtros Empresa/Garagem, Câmera e Mês (padrão: o mês mais recente).
+  - Filtros Empresa, Câmera e Mês (padrão: o mês mais recente), mais o botão OS, na linha do título.
+  - **Filtro de status**, múltiplo; os chips também servem de legenda: Funcional, 100% Offline, Erro de SD, 1+ câm. com problema, Sem conexão e Manutenção. Ficam os veículos com pelo menos um dia no mês com algum dos status marcados.
+  - **Com uma câmera escolhida,** as células, a dica e o painel de detalhe mostram só essa câmera. As manutenções também se limitam às que citam a câmera ou não informam câmera.
   - A matriz ocupa a altura toda, com rolagem virtual, ponto azul de manutenção e painel de detalhe.
-  - O botão **OS** gera a Ordem de Serviço em .xlsx no navegador (ExcelJS, carregado só na hora).
-- **Prioridade da OS:**
-  1. Mais dias com problema. É a sequência atual de dias com offline/erro de SD da câmera com o problema mais longo, contada do último dia com registro para trás. Um dia sem registro não interrompe nem conta; um dia 100% funcional encerra a sequência.
-  2. Empate: 100% offline antes de parcial.
-  3. Empate: mais câmeras afetadas.
+- **OS (Ordem de Serviço, .xlsx):** gerada no navegador pelo botão **OS** (ExcelJS, carregado só na hora).
+  - **Filtros:** Empresa, Câmera e Problema. O Problema segue a mesma partição da Visão geral; o padrão é 1+ câmera com problema, Erro de SD e 100% Offline.
+  - **Planilha:** uma aba só, e a tabela começa na linha 1.
+  - **Colunas:** Prioridade, Garagem/Empresa, Prefixo, Câm 21 a Câm 26, Observação técnica e Última manutenção. Com uma câmera escolhida, só a coluna, a observação e a última manutenção dessa câmera.
+  - **Status das câmeras** em texto, sem cor: Funcional, Erro SD, Offline, Variação (funcional agora, com falha nos últimos 7 dias) e Sem conexão (sem registro nas 24 h antes da atualização).
+  - **Formato:** cabeçalho congelado, autofiltro, larguras ajustadas e A4 paisagem ajustado à largura.
+  - **Última manutenção:** "data – Problema: … Ação: …", reescrita sem mudar o sentido:
+    - corrige erros de digitação comuns (camera → câmera, swicth → switch, nescessário → necessário…);
+    - corrige a caixa alta;
+    - remove ruído (prefixo repetido no início, "ANOMALIAS", "+N item(ns)");
+    - agrupa códigos C1…C6;
+    - corta textos longos com "…".
+- **Prioridade da OS:** três faixas; a planilha vem ordenada por faixa e, dentro dela, por dias com problema.
+  - **Alta:** 100% offline (ou, com uma câmera escolhida, a câmera offline) ou problema há 7 dias ou mais.
+  - **Média:** problema há 3 a 6 dias.
+  - **Baixa:** problema há menos de 3 dias.
+  - **Dias com problema:** a sequência atual de dias com offline/erro de SD da câmera com o problema mais longo, contada do último dia com registro para trás. Um dia sem registro não interrompe nem conta; um dia 100% funcional encerra a sequência.
+  - **Desempate:** 100% offline antes de parcial, depois mais câmeras afetadas.
 - **`site/v2/public/os.json`:** gerado por `scripts/gerar_v2_os.py`, que roda no fim de `atualizar_dados.py`. Guarda o último registro (data/hora) e o nº de mudanças de estado nos últimos 7 dias por prefixo e câmera.
 - **Build:** `npm run build` gera a raiz e depois `dist/v2/` (`vite.v2.config.js`).
-- **Validação:** `python tests/capturas_v2.py http://localhost:4174/v2/ local_v2`. Confere 1920×1080, 1366×768, 1024×768 e 390×844 sem rolagem e gera `docs/OS_exemplo.xlsx`.
+- **Validação:** `python tests/capturas_v2.py http://localhost:4174/v2/ local_v2`. Confere 1920×1080, 1366×768 e 390×844 (Matriz sem rolagem; Visão geral sem rolagem horizontal) e gera `docs/OS_exemplo_todas.xlsx` e `docs/OS_exemplo_cam21.xlsx`.
 
 ## Garagem
 - Fontes: formulário de manutenção (`Revisão_CFTV…`, coluna Garagem) e, **só para garagem**, as exportações Jotform em `data/raw/garagens/`: `jotform_responses.xlsx` (de `C:\Automação Jotform\data\`, abas registro_de_configuracao, revisao_tecnica, revisao_cftv e gerenciamento_de_servico, 07/2025 a 09/2026) e `Revisão_CFTV2026-09-30_07_52_29.xlsx` (Downloads). Elas ficam fora de `data/raw/` para não trocar o formulário usado nas manutenções.

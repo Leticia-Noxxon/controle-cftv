@@ -61,8 +61,15 @@ export const garagemDaEmpresa = (e) => (e == null ? 'Sem empresa' : MAPA_EMPRESA
 export const garagemDoFormulario = (g) => (g ? MAPA_FORMULARIO[g] || g : 'Sem empresa');
 
 // Rótulos oficiais dos status (matriz diária, legenda, dicas, gráfico)
-export const ROTULO = { on: 'Funcional', off: '100% Offline', fa: 'Erro de SD card e/ou 1+ câmera com problema', nd: 'Sem conexão' };
-export const ROTULO_CURTO = { on: 'Funcional', off: '100% Offline', fa: 'Erro SD e/ou problema', nd: 'Sem conexão' };
+export const ROTULO = { on: 'Funcional', off: '100% Offline', sd: 'Erro de SD', fa: '1+ câm. com problema', nd: 'Sem conexão' };
+export const ROTULO_CURTO = ROTULO;
+export const DEF_STATUS = {
+  on: 'Todos os registros do dia funcionais, sem erro',
+  off: 'Todos os registros do dia offline',
+  sd: 'Câmera conectada (nenhum registro offline), mas com erro de SD card em algum registro',
+  fa: 'Algum registro offline sem ser tudo offline (problema de conexão / variação)',
+  nd: 'Nenhum registro no dia',
+};
 export const CAMS_POS = [21, 22, 23, 24, 25, 26];
 const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 export const nomeMes = (ym) => `${MESES[Number(ym.slice(5, 7)) - 1].replace(/^./, (c) => c.toUpperCase())} de ${ym.slice(0, 4)}`;
@@ -141,22 +148,28 @@ export function faixaDias(F) {
   return out;
 }
 
-// Estado do dia a partir dos registros horários do dia (máscara por câmera: 1 = teve registro online ok,
+// Estado do dia a partir dos registros horários do dia (máscara por câmera: 1 = teve registro funcional,
 // 2 = teve registro com erro de SD, 4 = teve registro offline). Consideram-se as câmeras com registro no dia.
-// on = todas as câmeras online (sem erro) em todos os registros; off = todas offline em todos os registros;
-// fa = qualquer outra combinação com dados (erro de SD, offline em parte dos registros ou variação); nd = sem registro.
-// Com filtro de uma câmera, a mesma regra vale para essa câmera.
+// on  = todas as câmeras funcionais (sem erro) em todos os registros;
+// off = todas offline em todos os registros;
+// sd  = nenhum registro offline, mas algum com erro de SD (câmera conectada, só erro de SD);
+// fa  = qualquer outra combinação: algum registro offline sem ser tudo offline (conexão/variação) = 1+ câm. com problema;
+// nd  = sem registro (Sem conexão). Com filtro de uma câmera, a mesma regra vale só para essa câmera.
 export function estadoDia(v, i, cam) {
-  let com = 0, soOn = 0, soOff = 0;
+  let com = 0, soOn = 0, soOff = 0, algumOff = 0, algumSd = 0;
   for (const c in v.k) {
     if (cam && c !== String(cam)) continue;
     const m = Number(v.k[c][i] || 0);
     if (!m) continue;
     com += 1;
     if (m === 1) soOn += 1; else if (m === 4) soOff += 1;
+    if (m & 4) algumOff += 1;
+    if (m & 2) algumSd += 1;
   }
   if (!com) return 'nd';
-  return soOn === com ? 'on' : soOff === com ? 'off' : 'fa';
+  if (soOn === com) return 'on';
+  if (soOff === com) return 'off';
+  return !algumOff && algumSd ? 'sd' : 'fa';
 }
 
 // Tempos do dia (min) do veículo ou da câmera: [online, falha, offline]
@@ -181,7 +194,7 @@ export function ultimoCodigo(v, c, dias) {
 export const catCodigo = (x) => (x === 'N' ? 'on' : x === 'O' ? 'off' : 'fa');
 
 // Situação do veículo pelo último registro de cada câmera no período (mesma base dos cards).
-// cams: {câmera: 'on' | 'fa' | 'off'}; cat: on = todas funcionais, off = todas offline, fa = demais com dados, nd = sem registro.
+// cams: {câmera: 'on' | 'fa' (erro de SD) | 'off'}; fa = nº de câmeras com erro de SD.
 export function situacao(v, dias, cam) {
   const cams = {};
   let on = 0, fa = 0, off = 0;
@@ -194,7 +207,9 @@ export function situacao(v, dias, cam) {
     if (k === 'on') on += 1; else if (k === 'off') off += 1; else fa += 1;
   });
   const n = on + fa + off;
-  const cat = !n ? 'nd' : on === n ? 'on' : off === n ? 'off' : 'fa';
+  // cat (partição): on = todas funcionais; off = todas offline; sd = só erro de SD (nenhuma offline);
+  // fa = alguma offline sem ser todas (1+ câm. com falha de conexão); nd = sem registro
+  const cat = !n ? 'nd' : on === n ? 'on' : off === n ? 'off' : !off ? 'sd' : 'fa';
   return { cams, on, fa, off, n, cat, falha: fa + off > 0 };
 }
 // Categorias do clique nos cards: on = tem câmera funcional; fa = tem câmera com erro de SD; off = tem câmera offline; veic = fa ou off
@@ -205,6 +220,12 @@ export function posicionarTip(tip, ev) {
   const w = tip.offsetWidth, h = tip.offsetHeight;
   tip.style.left = `${Math.max(8, Math.min(ev.clientX + 12, innerWidth - w - 8))}px`;
   tip.style.top = `${ev.clientY + 14 + h > innerHeight ? Math.max(8, ev.clientY - h - 10) : ev.clientY + 14}px`;
+}
+
+// Manutenções do veículo no dia; com filtro de câmera, só as que citam a câmera (ou não informam câmera)
+export function manutDia(v, i, cam) {
+  const evs = (v.mv[i] || []).map((k) => D.manut.get(k)).filter(Boolean);
+  return cam ? evs.filter((m) => !(m.cams || []).length || m.cams.map(String).includes(String(cam))) : evs;
 }
 
 // Formatação
@@ -238,5 +259,6 @@ export const ICONE = {
   os: svg('<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3v3h6V3M9 11h6M9 15h4"/>', 16),
   dir: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>',
   esq: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>',
+  cal: svg('<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/>', 15),
   x: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>',
 };

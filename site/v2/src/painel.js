@@ -1,10 +1,10 @@
 // Painel de detalhe do veículo: prefixo + data, câmeras, métricas do dia, linha do tempo e manutenção.
 // Pode ser aberto na Matriz (ao lado da tabela) ou no detalhe da garagem (dentro do modal).
-import { D, detalhe, estadoDia, camNome, diaSemana, dmy, dur, hhmm, fmtP, esc, ICONE, ROTULO_CURTO } from './dados.js';
+import { D, manutDia, detalhe, estadoDia, camNome, diaSemana, dmy, dur, hhmm, fmtP, esc, ICONE, ROTULO_CURTO } from './dados.js';
 
 const COR = { N: 'var(--on)', F: 'var(--fa)', O: 'var(--off)', S: 'var(--nd)' };
 const NOME = { N: 'Funcional', F: 'Erro de SD card', O: 'Offline', S: 'Sem conexão' };
-const BADGE = { on: ['b-on', ROTULO_CURTO.on], off: ['b-off', ROTULO_CURTO.off], fa: ['b-fa', ROTULO_CURTO.fa], nd: ['b-nd', ROTULO_CURTO.nd] };
+const BADGE = { on: ['b-on', ROTULO_CURTO.on], off: ['b-off', ROTULO_CURTO.off], sd: ['b-sd', ROTULO_CURTO.sd], fa: ['b-fa', ROTULO_CURTO.fa], nd: ['b-nd', ROTULO_CURTO.nd] };
 const estadoCod = (x) => (x === 'N' ? 'N' : x === 'O' ? 'O' : 'F');
 let atual = null;
 
@@ -21,7 +21,7 @@ export function fecharPainel() {
   if (cb) cb();
 }
 
-const camPadrao = (v, i, camFiltro) => (camFiltro ? Number(camFiltro) : (v.c.find((c) => ['off', 'fa'].includes(estadoDia(v, i, String(c)))) ?? v.c[0]));
+const camPadrao = (v, i, camFiltro) => (camFiltro ? Number(camFiltro) : (v.c.find((c) => ['off', 'fa', 'sd'].includes(estadoDia(v, i, String(c)))) ?? v.c[0]));
 
 export function abrirPainel(host, p, i, camFiltro, aoFechar) {
   const v = D.porPrefixo.get(p);
@@ -38,14 +38,15 @@ async function desenhar() {
   const dia = D.dias[i];
   const box = host.box;
   const nav = host.navDia ? `<div class="nav-dia"><button class="fechar" id="pn-ant" aria-label="Dia anterior" ${i <= 0 ? 'disabled' : ''}>${ICONE.esq}</button><button class="fechar" id="pn-prox" aria-label="Próximo dia" ${i >= D.nd - 1 ? 'disabled' : ''}>${ICONE.dir}</button></div>` : '';
-  const cams = v.c.map((c) => {
+  // com filtro de câmera, o painel mostra só essa câmera
+  const cams = v.c.filter((c) => !atual.camFiltro || String(c) === String(atual.camFiltro)).map((c) => {
     const [cls, txt] = BADGE[estadoDia(v, i, String(c))];
     return `<button class="cam-b ${c === cam ? 'sel' : ''}" data-c="${c}"><span>${esc(camNome(c))}</span><span class="badge ${cls}">${txt}</span></button>`;
   }).join('');
-  const evs = (v.mv[i] || []).map((k) => D.manut.get(k)).filter(Boolean);
+  const evs = manutDia(v, i, atual.camFiltro);
   box.innerHTML = `<div class="painel" role="dialog" aria-label="Detalhe do prefixo ${p}">
     <div class="cab-p"><div><h2>Prefixo ${p}</h2><div class="sub">${diaSemana(dia)}, ${dmy(dia)} · ${esc(v.garagem)}${v.empresa !== v.garagem ? ` <span class="muted">(${esc(v.empresa)})</span>` : ''}</div></div><div class="cab-acoes">${nav}<button class="fechar" id="pn-fechar" aria-label="Fechar">${ICONE.x}</button></div></div>
-    <div class="sec"><h3>Câmeras</h3><div class="cams">${cams}</div></div>
+    <div class="sec"><h3>${atual.camFiltro ? 'Câmera' : 'Câmeras'}</h3><div class="cams">${cams}</div></div>
     <div class="sec" id="pn-dia"><h3>${esc(camNome(cam))}</h3><div class="sub">Carregando registros…</div></div>
     <div class="sec"><h3>Manutenção</h3>${evs.length ? evs.map(blocoManut).join('') : '<div class="sub">Sem manutenção registrada nesta data.</div>'}</div></div>`;
   box.querySelector('#pn-fechar').onclick = fecharPainel;
