@@ -23,10 +23,11 @@
  ],
  "garagens": {
   "linhas_lidas_por_fonte": {
+   "jotform": 4607,
    "formulario": 679
   },
-  "prefixos_com_garagem": 595,
-  "conflitos": 0
+  "prefixos_com_garagem": 3059,
+  "conflitos": 51
  },
  "qualidade_extra": {
   "camera_fora_do_mapeamento": [

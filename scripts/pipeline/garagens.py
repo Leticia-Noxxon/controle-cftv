@@ -4,9 +4,13 @@ Fontes verificadas (detecção pelo nome da coluna, sem depender de posição):
   - CSVs do monitoramento: coluna 'garagem' (ou alias) — se existir; hoje nenhum CSV do BigQuery tem essa coluna.
   - Relatório CFTV diário (xlsx): qualquer coluna cujo nome contenha 'garag' — hoje não existe.
   - Formulário de manutenção: coluna 'Garagem' (linhas do layout antigo já realinhadas; duplicadas descartadas).
+  - Exportações Jotform em data/raw/garagens/ (somente para garagem): jotform_responses.xlsx (abas registro_de_configuracao,
+    revisao_tecnica, revisao_cftv, gerenciamento_de_servico; a aba todos_os_formularios repete as outras e é ignorada)
+    e Revisão_CFTV*.xlsx mais novas. Mesmo vocabulário de garagem do formulário. Textos com acentuação corrompida
+    (UTF-8/latin-1 lido como cp850, ex.: 'ViaþÒo Metr¾pole') são reparados antes da comparação.
 Normalização: trim, espaços colapsados; '', '-', 'N/A', 'null', 'undefined', 'none' = vazio.
 Conflito (mesmo prefixo com garagens diferentes entre fontes/datas): vence o valor mais recente (maior data de
-referência); em empate de data, a ordem de prioridade da fonte (formulário > relatório > monitoramento).
+referência); em empate de data, a ordem de prioridade da fonte (formulário > Jotform > relatório > monitoramento).
 A garagem NUNCA é deduzida da empresa. Sem nenhum valor válido -> 'Não informado' no site.
 """
 import re
@@ -18,13 +22,27 @@ import openpyxl
 from . import config
 
 NULOS = {'', '-', '--', 'n/a', 'na', 'null', 'none', 'undefined', 'nan', '—'}
-PRIORIDADE = {'formulario': 3, 'relatorio': 2, 'monitoramento': 1}
+PRIORIDADE = {'formulario': 4, 'jotform': 3, 'relatorio': 2, 'monitoramento': 1}
+
+
+_MOJIBAKE = re.compile('[þÒ¾·Ó±Ô]')
+
+
+def reparar(t):
+    """'ViaþÒo Metr¾pole' -> 'Viação Metrópole' (texto latin-1/cp1252 lido como cp850). Só aplica se o reparo for exato."""
+    if not _MOJIBAKE.search(t):
+        return t
+    try:
+        r = t.encode('cp850').decode('cp1252')
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return t
+    return r if not _MOJIBAKE.search(r) else t
 
 
 def normalizar(v):
     if v is None:
         return None
-    t = unicodedata.normalize('NFC', re.sub(r'\s+', ' ', str(v))).strip()
+    t = unicodedata.normalize('NFC', reparar(re.sub(r'\s+', ' ', str(v)).strip())).strip()
     return None if t.lower() in NULOS else t
 
 
@@ -51,6 +69,51 @@ def do_relatorio():
                     continue
                 d = r[idt] if idt is not None else None
                 out.append((p, r[ig[0]], d.isoformat() if hasattr(d, 'isoformat') else '', 'relatorio'))
+        wb.close()
+    return out
+
+
+def _data(x):
+    import datetime as dt
+    import json
+    from . import manutencao
+    if x is None:
+        return ''
+    if isinstance(x, dt.datetime):
+        return x.isoformat(timespec='minutes')
+    t = str(x).strip()
+    if t.startswith('{'):
+        try:
+            d = json.loads(t)
+            return f"{int(d['year']):04d}-{int(d['month']):02d}-{int(d['day']):02d}"
+        except (ValueError, KeyError, TypeError):
+            return ''
+    m = re.match(r'(\d{4}-\d{2}-\d{2})', t)
+    if m:
+        return m.group(1)
+    d = manutencao.parse_data(t)
+    return d.isoformat(timespec='minutes') if d else ''
+
+
+def do_jotform():
+    """Exportações Jotform em data/raw/garagens/*.xlsx: colunas garagem/prefixo/data localizadas pelo nome."""
+    out = []
+    for path in sorted((config.RAW / 'garagens').glob('*.xlsx')):
+        wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+        for ws in wb.worksheets:
+            if ws.title == 'todos_os_formularios':
+                continue
+            it = ws.iter_rows(values_only=True)
+            cab = [str(c or '').strip().lower() for c in next(it, [])]
+            if 'garagem' not in cab or 'prefixo' not in cab:
+                continue
+            ig, ip, idt = cab.index('garagem'), cab.index('prefixo'), (cab.index('data') if 'data' in cab else None)
+            for r in it:
+                try:
+                    p = int(float(str(r[ip]).strip()))
+                except (TypeError, ValueError):
+                    continue
+                out.append((p, r[ig], _data(r[idt]) if idt is not None else '', 'jotform'))
         wb.close()
     return out
 

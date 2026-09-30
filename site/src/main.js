@@ -30,7 +30,7 @@ export function barraFiltros(el, { prefixo = true } = {}, aoFiltrar) {
     <div class="campo"><label for="f-camera">Câmera</label><select id="f-camera" class="w180"><option value="">Todas</option>${D.cameras.map((c) => `<option value="${c}" ${F.camera === String(c) ? 'selected' : ''}>${esc(camNome(c))}</option>`).join('')}</select></div>
     ${prefixo ? `<div class="campo"><label for="f-prefixo">Prefixo</label><input id="f-prefixo" class="w180" type="search" inputmode="numeric" placeholder="Ex.: 10003" value="${esc(F.prefixo)}" /></div>` : ''}
     <div class="campo"><span class="rot">Período</span><div class="periodo w280"><input id="f-de" type="date" min="${minD}" max="${maxD}" value="${F.de}" aria-label="Data inicial" /><span>–</span><input id="f-ate" type="date" min="${minD}" max="${maxD}" value="${F.ate}" aria-label="Data final" /></div></div>
-    <button class="btn" id="f-ok">Filtrar</button></div>`;
+    </div>`;
   const aplicar = async () => {
     F.empresa = el.querySelector('#f-empresa').value;
     F.camera = el.querySelector('#f-camera').value;
@@ -40,8 +40,14 @@ export function barraFiltros(el, { prefixo = true } = {}, aoFiltrar) {
     if (F.camera) await carregarCamera(F.camera);
     aoFiltrar();
   };
-  el.querySelector('#f-ok').onclick = aplicar;
-  el.querySelectorAll('input').forEach((i) => i.addEventListener('keydown', (e) => { if (e.key === 'Enter') aplicar(); }));
+  // Filtros aplicados automaticamente: selects e datas na mudança; prefixo enquanto digita (debounce de 300 ms)
+  let espera = 0;
+  el.querySelectorAll('select, input[type=date]').forEach((i) => i.addEventListener('change', aplicar));
+  const pre = el.querySelector('#f-prefixo');
+  if (pre) {
+    pre.addEventListener('input', () => { clearTimeout(espera); espera = setTimeout(aplicar, 300); });
+    pre.addEventListener('keydown', (e) => { if (e.key === 'Enter') { clearTimeout(espera); aplicar(); } });
+  }
 }
 
 function rota() {

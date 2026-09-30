@@ -50,6 +50,9 @@ main { padding: 16px var(--pad) var(--pad); }
 .kpi .rot { font-size: 12px; font-weight: 500; color: var(--txt2); display: flex; align-items: center; gap: 8px; }
 .kpi .rot i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
 .kpi .val { font-size: 24px; font-weight: 700; line-height: 32px; font-variant-numeric: tabular-nums; }
+.kpi.clic { cursor: pointer; }
+.kpi.clic:hover { border-color: #cbd5e1; }
+.kpi.ativo, .kpi.ativo:hover { background: var(--sel); border-color: var(--azul); }
 .kpi .un { font-size: 11px; color: var(--txt2); line-height: 14px; }
 .kpi .val small { font-size: 11px; font-weight: 400; color: var(--txt2); margin-left: 6px; }
 

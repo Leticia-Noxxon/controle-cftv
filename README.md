@@ -9,8 +9,9 @@ Duas páginas, sem recarregar (rota por `#`):
 
 ## Página 1 — Monitoramento
 
-- **Filtros** (combinam entre si; aplicados em “Filtrar” ou Enter): Empresa, Câmera, Prefixo (parte do número ou lista separada por vírgula) e Período (data inicial–final, limitado às datas presentes nos dados). Não há filtro de Garagem (a garagem continua na tabela).
+- **Filtros** (combinam entre si; aplicados **automaticamente**: Empresa, Câmera e Período na mudança, Prefixo enquanto digita, com espera de 300 ms; não há botão Filtrar): Empresa, Câmera, Prefixo (parte do número ou lista separada por vírgula) e Período (data inicial–final, limitado às datas presentes nos dados). Não há filtro de Garagem (a garagem continua na tabela); ele volta só se mais de 90 % dos prefixos tiverem garagem (hoje 52,7 %).
   - **Empresa → METROPOLE**: opção extra que agrupa todas as empresas cujo nome contém “METROPOLE” (sem diferenciar maiúsculas/acentos): METROPOLE - AE CARVALHO, METROPOLE - EXPANDIR, METROPOLE - IGUATEMI, METROPOLE - IMPERADOR, METROPOLE - ITAIM, METROPOLE - MBOI - MIRIM e METROPOLE PAULISTA - DEPINEDO. As empresas individuais continuam na lista.
+- **Clique no card** filtra a tabela aos veículos daquele card (novo clique limpa; card ativo com fundo `#EFF6FF` e borda azul). Combina com os demais filtros; os números dos cards continuam refletindo só os outros filtros. Veículos mostrados: *Câmeras funcionais* = veículos com ao menos uma câmera funcional; *Erro de SD card* = veículos com alguma câmera com erro de SD; *100% offline* = veículos com alguma câmera offline; *Veículos com falha* = exatamente os veículos contados no card (erro de SD ou offline). Sempre pelo último registro de cada câmera no período.
 - **Cards** (estado do **último registro de cada câmera dentro do período filtrado**; % sobre as câmeras filtradas):
   - *Câmeras funcionais* = último registro online com SD/login/gravação ok.
   - *Câmeras com erro de SD card* = último registro online com SD em erro (nos dados, sempre SD + gravação).
@@ -52,9 +53,11 @@ Filtros Empresa (com a opção METROPOLE), Câmera e Período (afetam tudo).
   - Filtros: Período pela data da visita; Câmera = visitas que citam a câmera; Empresa = empresa do prefixo no monitoramento (visitas de prefixos fora do monitoramento saem quando há filtro de empresa).
 
 ## Garagem
-- Fontes verificadas: os 3 CSVs de monitoramento (**não têm coluna de garagem**), o `Relatório CFTV - 28.09.2026.xlsx` (**não tem coluna de garagem**) e o formulário de manutenção (coluna Garagem). A aba auxiliar “Planilha1” de um formulário antigo só lista nomes de garagem, sem prefixo.
-- `scripts/pipeline/garagens.py` reúne todas as fontes que tiverem uma coluna com “garag” no nome: trim, espaços colapsados, Unicode NFC; `''`, `-`, `N/A`, `null`, `undefined` etc. = vazio. Por prefixo, vence o valor válido **mais recente** (empate: formulário > relatório > monitoramento); conflitos são contados no log e gravados em `data/processed/garagens_conflitos.json`.
-- Resultado: 595 prefixos com garagem no formulário, **0 conflitos**; **581 dos 5.598 prefixos monitorados** têm garagem (os outros 14 prefixos do formulário não aparecem no monitoramento). Os demais mostram **“Não informado”** — nenhuma fonte informa a garagem deles. A garagem nunca é deduzida da empresa. O “—” anterior era falta de dado na fonte, não erro de junção.
+- Fontes: formulário de manutenção (`Revisão_CFTV…`, coluna Garagem) e, **só para garagem**, as exportações Jotform em `data/raw/garagens/`: `jotform_responses.xlsx` (de `C:\Automação Jotform\data\`, abas registro_de_configuracao, revisao_tecnica, revisao_cftv e gerenciamento_de_servico, 07/2025 a 09/2026) e `Revisão_CFTV2026-09-30_07_52_29.xlsx` (Downloads). Elas ficam fora de `data/raw/` para não trocar o formulário usado nas manutenções.
+- Verificadas e **não usadas**: CSVs do monitoramento e Relatório CFTV 28/09 (sem coluna de garagem); `ListaAVL`, `relatorio_armazenamento_ucps_*` e Relatórios CFTV de março (coluna “garagem” no nível da empresa, ex.: “VIA SUDESTE” sem Cursino/Sapopemba — equivale à empresa); `Tecnologia Geral.xlsx` (01/2026, nomes diferentes e só 75 % de concordância em Cursino/Sapopemba; Brás × Iguatemi divergente).
+- `scripts/pipeline/garagens.py`: trim, espaços colapsados, NFC, reparo de acentuação corrompida (“ViaþÒo Metr¾pole” → “Viação Metrópole”), nulos (`''`, `-`, `N/A`, `null`…) descartados. Por prefixo vence o valor válido **mais recente** (data do formulário); empate: formulário > Jotform > relatório > monitoramento. Conflitos contados no log e gravados em `data/processed/garagens_conflitos.json` (51 hoje, quase todos veículos que mudaram de garagem).
+- Concordância Jotform × formulário: 581/581 prefixos com o mesmo valor final; 1.356/1.366 registros (99,3 %).
+- Cobertura: **2.948 de 5.598 prefixos monitorados (52,7 %)**, antes 581 (10,4 %). Os demais mostram “Não informado”: nenhuma fonte informa a garagem. A garagem nunca é deduzida da empresa.
 
 ## Fontes de dados
 

@@ -1,1 +1,410 @@
-{}
+{
+ "52799": {
+  "valores": [
+   "Via Sudeste Cursino",
+   "Via Sudeste Sapopemba"
+  ],
+  "escolhido": "Via Sudeste Sapopemba",
+  "origem": "formulario"
+ },
+ "31786": {
+  "valores": [
+   "Viação Metrópole Imperador",
+   "Viação Metrópole Itaim"
+  ],
+  "escolhido": "Viação Metrópole Imperador",
+  "origem": "formulario"
+ },
+ "31157": {
+  "valores": [
+   "Via Sudeste Cursino",
+   "Viação Metrópole Imperador"
+  ],
+  "escolhido": "Viação Metrópole Imperador",
+  "origem": "formulario"
+ },
+ "52796": {
+  "valores": [
+   "Via Sudeste Cursino",
+   "Via Sudeste Sapopemba"
+  ],
+  "escolhido": "Via Sudeste Sapopemba",
+  "origem": "formulario"
+ },
+ "51580": {
+  "valores": [
+   "Via Sudeste Cursino",
+   "Via Sudeste Sapopemba"
+  ],
+  "escolhido": "Via Sudeste Sapopemba",
+  "origem": "formulario"
+ },
+ "31258": {
+  "valores": [
+   "Viação Metrópole Iguatemi",
+   "Viação Metrópole Itaim"
+  ],
+  "escolhido": "Viação Metrópole Iguatemi",
+  "origem": "jotform"
+ },
+ "31854": {
+  "valores": [
+   "Viação Metrópole Iguatemi",
+   "Viação Metrópole Itaim"
+  ],
+  "escolhido": "Viação Metrópole Itaim",
+  "origem": "jotform"
+ },
+ "51007": {
+  "valores": [
+   "Via Sudeste Cursino",
+   "Via Sudeste Sapopemba"
+  ],
+  "escolhido": "Via Sudeste Sapopemba",
+  "origem": "formulario"
+ },
+ "26017": {
+  "valores": [
+   "Norte Buss A2",
+   "Viação Metrópole Imperador"
+  ],
+  "escolhido": "Viação Metrópole Imperador",
+  "origem": "jotform"
+ },
+ "26038": {
+  "valores": [
+   "Norte Buss A1",
+   "Norte Buss A2"
+  ],
+  "escolhido": "Norte Buss A1",
+  "origem": "jotform"
+ },
+ "26013": {
+  "valores": [
+   "Norte Buss A1",
+   "Norte Buss A2"
+  ],
+  "escolhido": "Norte Buss A1",
+  "origem": "jotform"
+ },
+ "26062": {
+  "valores": [
+   "Norte Buss A1",
+   "Norte Buss A2"
+  ],
+  "escolhido": "Norte Buss A1",
+  "origem": "jotform"
+ },
+ "26014": {
+  "valores": [
+   "Norte Buss A1",
+   "Norte Buss A2"
+  ],
+  "escolhido": "Norte Buss A1",
+  "origem": "jotform"
+ },
+ "26051": {
+  "valores": [
+   "Norte Buss A1",
+   "Norte Buss A2"
+  ],
+  "escolhido": "Norte Buss A1",
+  "origem": "jotform"
+ },
+ "26030": {
+  "valores": [
+   "Norte Buss A1",
+   "Trans União D3"
+  ],
+  "escolhido": "Norte Buss A1",
+  "origem": "jotform"
+ },
+ "26064": {
+  "valores": [
+   "Norte Buss A1",
+   "Norte Buss A2"
+  ],
+  "escolhido": "Norte Buss A1",
+  "origem": "jotform"
+ },
+ "26116": {
+  "valores": [
+   "Norte Buss A1",
+   "Norte Buss A2"
+  ],
+  "escolhido": "Norte Buss A1",
+  "origem": "jotform"
+ },
+ "26058": {
+  "valores": [
+   "Norte Buss A1",
+   "Norte Buss A2"
+  ],
+  "escolhido": "Norte Buss A1",
+  "origem": "jotform"
+ },
+ "26542": {
+  "valores": [
+   "Norte Buss A1",
+   "Norte Buss A2"
+  ],
+  "escolhido": "Norte Buss A2",
+  "origem": "jotform"
+ },
+ "26206": {
+  "valores": [
+   "Norte Buss A2",
+   "Viação Metrópole Imperador"
+  ],
+  "escolhido": "Norte Buss A2",
+  "origem": "jotform"
+ },
+ "26414": {
+  "valores": [
+   "Norte Buss A2",
+   "Trans União D3"
+  ],
+  "escolhido": "Norte Buss A2",
+  "origem": "jotform"
+ },
+ "26485": {
+  "valores": [
+   "Norte Buss A1",
+   "Norte Buss A2"
+  ],
+  "escolhido": "Norte Buss A1",
+  "origem": "jotform"
+ },
+ "26265": {
+  "valores": [
+   "Norte Buss A1",
+   "Norte Buss A2"
+  ],
+  "escolhido": "Norte Buss A1",
+  "origem": "jotform"
+ },
+ "26486": {
+  "valores": [
+   "Norte Buss A1",
+   "Norte Buss A2"
+  ],
+  "escolhido": "Norte Buss A1",
+  "origem": "jotform"
+ },
+ "26479": {
+  "valores": [
+   "Norte Buss A1",
+   "Norte Buss A2"
+  ],
+  "escolhido": "Norte Buss A1",
+  "origem": "jotform"
+ },
+ "26406": {
+  "valores": [
+   "Norte Buss A1",
+   "Norte Buss A2"
+  ],
+  "escolhido": "Norte Buss A1",
+  "origem": "jotform"
+ },
+ "26911": {
+  "valores": [
+   "Norte Buss A1",
+   "Norte Buss A2"
+  ],
+  "escolhido": "Norte Buss A1",
+  "origem": "jotform"
+ },
+ "26205": {
+  "valores": [
+   "Norte Buss A1",
+   "Norte Buss A2"
+  ],
+  "escolhido": "Norte Buss A1",
+  "origem": "jotform"
+ },
+ "26390": {
+  "valores": [
+   "Norte Buss A2",
+   "Viação Metrópole Imperador"
+  ],
+  "escolhido": "Viação Metrópole Imperador",
+  "origem": "jotform"
+ },
+ "26122": {
+  "valores": [
+   "Norte Buss A2",
+   "Viação Metrópole Imperador"
+  ],
+  "escolhido": "Viação Metrópole Imperador",
+  "origem": "jotform"
+ },
+ "26054": {
+  "valores": [
+   "Norte Buss A2",
+   "Viação Metrópole Imperador"
+  ],
+  "escolhido": "Viação Metrópole Imperador",
+  "origem": "jotform"
+ },
+ "26228": {
+  "valores": [
+   "Norte Buss A2",
+   "Viação Metrópole Imperador"
+  ],
+  "escolhido": "Viação Metrópole Imperador",
+  "origem": "jotform"
+ },
+ "26240": {
+  "valores": [
+   "Norte Buss A2",
+   "Viação Metrópole Imperador"
+  ],
+  "escolhido": "Viação Metrópole Imperador",
+  "origem": "jotform"
+ },
+ "26068": {
+  "valores": [
+   "Norte Buss A2",
+   "Viação Metrópole Imperador"
+  ],
+  "escolhido": "Viação Metrópole Imperador",
+  "origem": "jotform"
+ },
+ "26336": {
+  "valores": [
+   "Norte Buss A2",
+   "Viação Metrópole Imperador"
+  ],
+  "escolhido": "Viação Metrópole Imperador",
+  "origem": "jotform"
+ },
+ "26549": {
+  "valores": [
+   "Norte Buss A1",
+   "Norte Buss A2"
+  ],
+  "escolhido": "Norte Buss A1",
+  "origem": "jotform"
+ },
+ "26086": {
+  "valores": [
+   "Norte Buss A2",
+   "Trans União D3"
+  ],
+  "escolhido": "Norte Buss A2",
+  "origem": "jotform"
+ },
+ "26180": {
+  "valores": [
+   "Norte Buss A2",
+   "Trans União D3"
+  ],
+  "escolhido": "Norte Buss A2",
+  "origem": "jotform"
+ },
+ "26903": {
+  "valores": [
+   "Norte Buss A2",
+   "Trans União D3"
+  ],
+  "escolhido": "Norte Buss A2",
+  "origem": "jotform"
+ },
+ "26288": {
+  "valores": [
+   "Norte Buss A1",
+   "Norte Buss A2"
+  ],
+  "escolhido": "Norte Buss A1",
+  "origem": "jotform"
+ },
+ "26467": {
+  "valores": [
+   "Norte Buss A1",
+   "Norte Buss A2"
+  ],
+  "escolhido": "Norte Buss A1",
+  "origem": "jotform"
+ },
+ "26551": {
+  "valores": [
+   "Norte Buss A1",
+   "Norte Buss A2"
+  ],
+  "escolhido": "Norte Buss A1",
+  "origem": "jotform"
+ },
+ "35981": {
+  "valores": [
+   "Alfa Rodobus",
+   "Alfa Rodobus SPE"
+  ],
+  "escolhido": "Alfa Rodobus SPE",
+  "origem": "jotform"
+ },
+ "35918": {
+  "valores": [
+   "Alfa Rodobus",
+   "Alfa Rodobus SPE"
+  ],
+  "escolhido": "Alfa Rodobus SPE",
+  "origem": "jotform"
+ },
+ "35913": {
+  "valores": [
+   "Alfa Rodobus",
+   "Alfa Rodobus SPE"
+  ],
+  "escolhido": "Alfa Rodobus SPE",
+  "origem": "jotform"
+ },
+ "35713": {
+  "valores": [
+   "Alfa Rodobus",
+   "Alfa Rodobus SPE"
+  ],
+  "escolhido": "Alfa Rodobus SPE",
+  "origem": "jotform"
+ },
+ "26129": {
+  "valores": [
+   "Norte Buss A1",
+   "Norte Buss A2"
+  ],
+  "escolhido": "Norte Buss A1",
+  "origem": "jotform"
+ },
+ "86031": {
+  "valores": [
+   "A2 Transportes",
+   "Alfa Rodobus"
+  ],
+  "escolhido": "Alfa Rodobus",
+  "origem": "jotform"
+ },
+ "26289": {
+  "valores": [
+   "Norte Buss A1",
+   "Norte Buss A2"
+  ],
+  "escolhido": "Norte Buss A1",
+  "origem": "jotform"
+ },
+ "51044": {
+  "valores": [
+   "Norte Buss A2",
+   "Via Sudeste Sapopemba"
+  ],
+  "escolhido": "Via Sudeste Sapopemba",
+  "origem": "formulario"
+ },
+ "26223": {
+  "valores": [
+   "Norte Buss A1",
+   "Norte Buss A2"
+  ],
+  "escolhido": "Norte Buss A1",
+  "origem": "jotform"
+ }
+}

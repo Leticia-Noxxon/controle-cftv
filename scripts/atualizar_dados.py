@@ -124,7 +124,7 @@ def main(reusar=False):
     form_por_id = {f['id']: f for f in forms}
 
     # ---------------- garagens (todas as fontes) ----------------
-    mapa_gar, conflitos_gar, stats_gar = garagens.resolver(garagens.do_monitoramento(con), garagens.do_relatorio(), garagens.do_formulario(forms))
+    mapa_gar, conflitos_gar, stats_gar = garagens.resolver(garagens.do_monitoramento(con), garagens.do_relatorio(), garagens.do_jotform(), garagens.do_formulario(forms))
     (config.PROCESSED / 'garagens_conflitos.json').write_text(json.dumps(conflitos_gar, ensure_ascii=False, indent=1), encoding='utf-8')
 
     # ---------------- frota (índice leve, carregado na abertura) ----------------

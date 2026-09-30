@@ -135,3 +135,12 @@ def test_garagens_normalizacao_e_conflito():
 def test_linhas_texto_manutencao():
     txt = 'Nenhuma anomalia identificada<br>Câmera 21 sem imagem;  - Troca do cabo da câm 21 <br/>Câmera 21 sem imagem\nSD card da UCP substituído.'
     assert atualizar_dados.linhas_texto(txt) == ['Câmera 21 sem imagem', 'Troca do cabo da câm 21', 'SD card da UCP substituído']
+
+
+def test_garagem_acentuacao_corrompida_e_datas_jotform():
+    assert garagens.normalizar('ViaþÒo Metr¾pole Pinedo') == 'Viação Metrópole Pinedo'
+    assert garagens.normalizar('ViaþÒo Graja·') == 'Viação Grajaú'
+    assert garagens.normalizar('Via Sudeste Cursino') == 'Via Sudeste Cursino'
+    assert garagens._data('{"day": "23", "month": "06", "year": "2026"}') == '2026-06-23'
+    assert garagens._data('2026-06-30 12:33:00') == '2026-06-30'
+    assert garagens._data('quarta-feira, setembro 16, 2026 03:11') == '2026-09-16T03:11'

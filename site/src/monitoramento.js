@@ -3,7 +3,7 @@ import { F, barraFiltros } from './main.js';
 import { D, veiculosFiltrados, faixaDias, estadoDia, tempos, dispPeriodo, ultimoCodigo, catCodigo, camNome, fmtN, fmtP, diaSemana, dmy, dur, esc, SEM_GARAGEM } from './dados.js';
 import { abrirPainel, fecharPainel, painelAberto } from './painel.js';
 
-const S = { ord: { k: 'garagem', dir: 1 }, sel: null };
+const S = { ord: { k: 'garagem', dir: 1 }, sel: null, card: '' };
 // Rolagem virtual: só as linhas visíveis + BUFFER acima/abaixo são desenhadas; espaçadores mantêm a altura total.
 const BUFFER = 12;
 const V = { linhas: [], dias: [], ini: -1, fim: -1, raf: 0 };
@@ -38,10 +38,24 @@ function linhasFiltradas() {
   return { linhas, dias };
 }
 
+// Categoria de cada veículo pelo último registro de cada câmera (filtrada) no período — mesma base dos cards.
+// on = tem ao menos uma câmera funcional; fa = tem câmera com erro de SD; off = tem câmera offline; veic = fa ou off.
+function categorias(v, dias) {
+  const c = { on: false, fa: false, off: false };
+  v.c.forEach((cam) => {
+    if (F.camera && String(cam) !== F.camera) return;
+    const x = ultimoCodigo(v, cam, dias);
+    if (x) c[catCodigo(x)] = true;
+  });
+  c.veic = c.fa || c.off;
+  return c;
+}
+
 function atualizar() {
   const { linhas, dias } = linhasFiltradas();
   cards(linhas.map((r) => r.v), dias);
-  tabela(linhas, dias);
+  // Clique no card filtra a tabela aos veículos daquele card (combina com os demais filtros; os números dos cards não mudam)
+  tabela(S.card ? linhas.filter((r) => categorias(r.v, dias)[S.card]) : linhas, dias);
 }
 
 function cards(vs, dias) {
@@ -59,9 +73,14 @@ function cards(vs, dias) {
   });
   const tot = on + fa + off;
   const pc = (n, t) => (t ? `<small>${fmtP((100 * n) / t)}</small>` : '');
-  const card = (cor, rot, val, extra, un) => `<div class="card kpi"><div class="rot"><i style="background:${cor}"></i>${rot}</div><div><div class="val">${fmtN(val)}${extra}</div><div class="un">${un}</div></div></div>`;
-  document.getElementById('p1-cards').innerHTML = card('var(--on)', 'Câmeras funcionais', on, pc(on, tot), 'câmeras') + card('var(--fa)', 'Câmeras com erro de SD card', fa, pc(fa, tot), 'câmeras')
-    + card('var(--off)', 'Câmeras 100% offline', off, pc(off, tot), 'câmeras') + card('var(--azul)', 'Veículos com falha', veic, pc(veic, vs.length), 'veículos');
+  const card = (cor, rot, val, extra, un, k) => `<div class="card kpi clic${S.card === k ? ' ativo' : ''}" data-card="${k}" role="button" tabindex="0" aria-pressed="${S.card === k}" title="${S.card === k ? 'Clique para limpar' : 'Filtrar a tabela por este card'}"><div class="rot"><i style="background:${cor}"></i>${rot}</div><div><div class="val">${fmtN(val)}${extra}</div><div class="un">${un}</div></div></div>`;
+  document.getElementById('p1-cards').innerHTML = card('var(--on)', 'Câmeras funcionais', on, pc(on, tot), 'câmeras', 'on') + card('var(--fa)', 'Câmeras com erro de SD card', fa, pc(fa, tot), 'câmeras', 'fa')
+    + card('var(--off)', 'Câmeras 100% offline', off, pc(off, tot), 'câmeras', 'off') + card('var(--azul)', 'Veículos com falha', veic, pc(veic, vs.length), 'veículos', 'veic');
+  document.querySelectorAll('#p1-cards .clic').forEach((c) => {
+    const alternar = () => { S.card = S.card === c.dataset.card ? '' : c.dataset.card; S.sel = null; fecharPainel(); atualizar(); };
+    c.addEventListener('click', alternar);
+    c.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); alternar(); } });
+  });
 }
 
 function tabela(linhas, dias) {

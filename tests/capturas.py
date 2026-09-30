@@ -95,12 +95,35 @@ with sync_playwright() as p:
     emp = meta['empresas']
     metro = [i for i, e in enumerate(emp) if 'METROPOLE' in e.upper()]
     print('      METROPOLE agrupa:', [emp[i] for i in metro])
-    pg.select_option('#f-empresa', '*METROPOLE'); pg.select_option('#f-camera', '21'); pg.click('#f-ok'); pg.wait_for_timeout(500)
+    pg.select_option('#f-empresa', '*METROPOLE'); pg.select_option('#f-camera', '21'); pg.wait_for_timeout(500)
     n = int(pg.inner_text('#p1-cont').split()[0].replace('.', ''))
     esperado = sum(1 for v in frota['veiculos'] if v.get('e') in metro and 21 in v['c'])
     ok(n == esperado, f'Empresa METROPOLE + câmera 21: {n} veículos (esperado {esperado})')
     print('      cards METROPOLE+21:', [c.inner_text().replace(chr(10), ' ') for c in pg.query_selector_all('.kpi')])
-    pg.select_option('#f-empresa', ''); pg.select_option('#f-camera', ''); pg.click('#f-ok'); pg.wait_for_timeout(300)
+    pg.select_option('#f-empresa', ''); pg.select_option('#f-camera', ''); pg.wait_for_timeout(300)
+    ok(pg.query_selector('#f-ok') is None, 'sem botão Filtrar (filtros automáticos)')
+    cnt = lambda: int(pg.inner_text('#p1-cont').split()[0].replace('.', ''))
+    pg.type('#f-prefixo', '6800', delay=40); pg.wait_for_timeout(150)
+    antes = cnt(); pg.wait_for_timeout(450)
+    esperado = sum(1 for v in frota['veiculos'] if '6800' in str(v['p']))
+    ok(cnt() == esperado and antes != esperado, f'prefixo "6800" filtra ao digitar com debounce: {cnt()} (esperado {esperado})')
+    pg.fill('#f-prefixo', ''); pg.wait_for_timeout(450)
+    # clique nos cards
+    tot = cnt()
+    for k in ('on', 'fa', 'off', 'veic'):
+        pg.click(f'.kpi[data-card="{k}"]'); pg.wait_for_timeout(300)
+        n = cnt(); ativo = pg.eval_on_selector(f'.kpi[data-card="{k}"]', 'e => [e.classList.contains("ativo"), getComputedStyle(e).backgroundColor]')
+        print(f'      card {k}: {n} veículos, ativo={ativo}')
+        ok(0 < n <= tot and ativo[0] and ativo[1] == 'rgb(239, 246, 255)', f'card {k} filtra a tabela ({n} de {tot})')
+        if k == 'veic':
+            val = pg.eval_on_selector('.kpi[data-card="veic"] .val', 'e => e.firstChild.textContent')
+            ok(n == int(val.replace('.', '')), f'card Veículos com falha: tabela {n} = card {val}')
+        if k == 'fa':
+            pg.select_option('#f-empresa', '*METROPOLE'); pg.wait_for_timeout(400)
+            ok(pg.query_selector('.kpi[data-card="fa"].ativo') is not None and cnt() < n, f'card + Empresa METROPOLE combinam ({cnt()})')
+            pg.select_option('#f-empresa', ''); pg.wait_for_timeout(400)
+        pg.click(f'.kpi[data-card="{k}"]'); pg.wait_for_timeout(300)
+        ok(cnt() == tot and pg.query_selector('.kpi.ativo') is None, f'novo clique no card {k} limpa o filtro')
     print('      cards:', [c.inner_text().replace(chr(10), ' ') for c in pg.query_selector_all('.kpi')])
 
     # navegação -> página 2
