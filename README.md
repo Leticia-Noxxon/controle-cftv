@@ -4,31 +4,31 @@ Painel estático (Vite + JavaScript, sem framework) publicado no GitHub Pages: h
 
 Duas páginas, sem recarregar (rota por `#`):
 
-- **Monitoramento** (`/`): cabeçalho (última atualização = horário do registro mais recente dos dados), filtros, 4 cards, tabela Garagem × Prefixo × Disponibilidade × datas, painel de detalhe, legenda e paginação. Botão `›` no canto → Estatísticas.
-- **Estatísticas** (`#estatisticas`): ranking de garagens, distribuição dos status (rosca) e evolução da disponibilidade (linha). Botão `‹` volta ao monitoramento.
+- **Monitoramento** (`/`): cabeçalho (última atualização = horário do registro mais recente dos dados), filtros, 4 cards, tabela Garagem × Prefixo × Disponibilidade × datas (uma única tabela com rolagem), painel de detalhe e legenda. Botão `›` no canto → Estatísticas.
+- **Estatísticas** (`#estatisticas`): ranking de conexão das câmeras (por empresa) e ranking de manutenção (por garagem). Botão `‹` volta ao monitoramento.
 
 ## Página 1 — Monitoramento
 
-- **Filtros** (combinam entre si; aplicados em “Filtrar” ou Enter): Empresa, Garagem (valores reais das fontes + “Não informado”), Câmera, Prefixo (parte do número ou lista separada por vírgula) e Período (data inicial–final, limitado às datas presentes nos dados).
+- **Filtros** (combinam entre si; aplicados em “Filtrar” ou Enter): Empresa, Câmera, Prefixo (parte do número ou lista separada por vírgula) e Período (data inicial–final, limitado às datas presentes nos dados). Não há filtro de Garagem (a garagem continua na tabela).
+  - **Empresa → METROPOLE**: opção extra que agrupa todas as empresas cujo nome contém “METROPOLE” (sem diferenciar maiúsculas/acentos): METROPOLE - AE CARVALHO, METROPOLE - EXPANDIR, METROPOLE - IGUATEMI, METROPOLE - IMPERADOR, METROPOLE - ITAIM, METROPOLE - MBOI - MIRIM e METROPOLE PAULISTA - DEPINEDO. As empresas individuais continuam na lista.
 - **Cards** (estado do **último registro de cada câmera dentro do período filtrado**; % sobre as câmeras filtradas):
-  - *Funcionais* = último registro online com SD/login/gravação ok.
-  - *Erro de SD card* = último registro online com SD em erro (nos dados, sempre SD + gravação).
-  - *100% offline* = último registro offline.
-  - *Veículos com falha* = prefixos com pelo menos uma câmera filtrada com erro de SD ou offline no último registro.
-- **Tabela**: Garagem (190 px), Prefixo (85 px), Disponibilidade (105 px) e uma coluna por data. As datas vêm dos próprios dados (datas distintas dos registros, em Brasília), nunca de uma lista fixa. As colunas de data dividem toda a largura restante (mínimo 28 px); se não couberem, só a área das datas rola na horizontal, com as 3 primeiras colunas e o cabeçalho fixos. A altura da tabela acompanha a janela. Clique em Garagem/Prefixo/Disponibilidade para ordenar. Só a página atual é desenhada.
-- **Cor da célula** (sem texto):
+  - *Câmeras funcionais* = último registro online com SD/login/gravação ok.
+  - *Câmeras com erro de SD card* = último registro online com SD em erro (nos dados, sempre SD + gravação).
+  - *Câmeras 100% offline* = último registro offline.
+  - *Veículos com falha* (unidade: veículos; os três primeiros contam câmeras) = prefixos com pelo menos uma câmera filtrada com erro de SD ou offline no último registro.
+- **Tabela**: Garagem (190 px), Prefixo (85 px), Disponibilidade (105 px) e uma coluna por data. As datas vêm dos próprios dados (datas distintas dos registros, em Brasília), nunca de uma lista fixa. As colunas de data dividem toda a largura restante (mínimo 28 px); se não couberem, só a área das datas rola na horizontal, com as 3 primeiras colunas e o cabeçalho fixos. A altura da tabela acompanha a janela. Clique em Garagem/Prefixo/Disponibilidade para ordenar. **Sem paginação**: todos os veículos ficam na mesma tabela e basta rolar até o fim; por desempenho, a rolagem é **virtual** (só as linhas visíveis + 12 acima/abaixo são desenhadas; espaçadores mantêm a altura total). A contagem “N veículos” fica abaixo, à direita.
+- **Cor da célula** (sem texto), a partir de **todos os registros horários do dia**, considerando as câmeras (filtradas) que têm registro no dia:
 
-  | Situação | Cor |
-  |---|---|
-  | Todas as câmeras (filtradas) com registro no dia ficaram sempre online e sem erro | Verde `#22C55E` |
-  | Uma ou mais câmeras tiveram algum registro offline ou com erro de SD, mas não todas | Âmbar `#F59E0B` |
-  | Todas as câmeras com registro no dia tiveram algum registro offline/erro | Vermelho `#EF4444` |
-  | Nenhum registro no dia | Cinza `#CBD5E1` (nunca conta como offline) |
+  | Situação | Cor | Legenda |
+  |---|---|---|
+  | Todas as câmeras online, sem erro, em todos os registros do dia | Verde `#22C55E` | Todo online |
+  | Todas as câmeras offline em todos os registros do dia | Vermelho `#EF4444` | Todo offline |
+  | Qualquer outro caso com dados: alguma câmera com erro de SD, offline só em parte dos registros ou variação ao longo do dia | Âmbar `#F59E0B` | Erro SD ou variação |
+  | Nenhum registro no dia | Cinza `#CBD5E1` (nunca conta como offline) | Sem dados |
 
-  Com **uma câmera** no filtro, a célula mostra o estado dessa câmera: vermelho se teve algum registro offline no dia, âmbar se teve erro de SD (sem offline), verde se só online, cinza sem dados.
+  Com **uma câmera** no filtro, a mesma regra vale para essa câmera (verde = todos os registros online; vermelho = todos offline; âmbar = o resto). Os selos das câmeras no painel seguem a mesma regra.
 - **Ponto azul** (6 px, canto superior direito) = há formulário de manutenção do veículo naquele dia (“Manutenção registrada”). Tooltip da célula: data, câmeras, disponibilidade do dia, tempo online, tempo offline e Manutenção Sim/Não.
 - **Disponibilidade** (coluna e tooltip) = tempo online ÷ tempo monitorado no período, com as câmeras filtradas. **Tempo monitorado exclui “Sem dados”**; erro de SD conta como não disponível.
-- **Paginação**: “Mostrando 1–20 de N”, páginas com reticências, 20/50/100 por página (padrão 20). Todos os prefixos são alcançáveis.
 - **Painel de detalhe** (clique na célula): abre à direita (grade `3fr / minmax(320px, 1fr)`); fechado, a tabela volta a 100 % da largura. Abaixo de 1024 px vira gaveta sobreposta. Mostra prefixo, data, empresa e garagem; lista de câmeras com o estado do dia; para a câmera escolhida: disponibilidade do dia, tempos online/offline/falha/sem dados, **linha do tempo** e os **formulários de manutenção** do dia (Data/hora e técnico, Problema e Ação em até 3 linhas, “Ver registro completo” com o texto original do formulário, carregado sob demanda).
 
 ### Linha do tempo (como é calculada)
@@ -42,11 +42,13 @@ Duas páginas, sem recarregar (rota por `#`):
 Quebras `<br>`/linhas/`;` viram itens; removem-se marcadores, linhas vazias, frases padrão (“Nenhuma anomalia identificada”, “Nenhuma ação realizada”) e repetições. Nada é reescrito: números de câmera, componentes, cabo, SD, UCP, TDM etc. ficam como o técnico escreveu. **Ação** prioriza a observação final do técnico; se não houver, usa as ações marcadas no formulário. Linhas longas são cortadas com “…” (o texto completo fica em “Ver registro completo”).
 
 ## Página 2 — Estatísticas
-Filtros Empresa, Garagem, Câmera e Período (afetam tudo).
-- **Ranking de garagens com maiores problemas** (ordenado pela menor disponibilidade): disponibilidade = tempo online ÷ tempo monitorado (mesma regra da página 1), câmeras com falha e veículos com falha (mesma definição dos cards, último registro no período). “Não informado” aparece no fim, sem posição.
-- **Distribuição dos status**: horas-câmera Online, Offline, Erro SD/Falha e Sem dados. Sem dados = (câmeras × horas cobertas pela extração em cada dia) − horas monitoradas.
-- **Evolução da disponibilidade**: disponibilidade diária (0–100 %), com seletor de garagem (padrão: todas).
-Gráficos em SVG próprio (sem biblioteca).
+Filtros Empresa (com a opção METROPOLE), Câmera e Período (afetam tudo).
+- **Ranking de conexão das câmeras** (só dados de monitoramento), uma linha por empresa real, ordenado pela menor disponibilidade de conexão: disponibilidade = tempo online ÷ tempo monitorado no período (mesma regra da página 1, sem “Sem dados”); câmeras com falha e veículos com falha = mesma definição dos cards (último registro da câmera no período offline ou com erro de SD).
+- **Ranking de manutenção** (formulário + análise antes/depois do pipeline), por **garagem do formulário** (todas as visitas têm garagem; muitas não têm empresa no monitoramento), ordenado pelo número de visitas:
+  - *Visitas* = formulários do mesmo prefixo no mesmo dia; *Veículos visitados* = prefixos distintos.
+  - *% precisava* = visitas com câmera offline/erro nas 24 h anteriores ÷ visitas com dados de monitoramento antes (Sim + Não).
+  - *% resolvido* = (Resolvido + Resolvido com recorrência) ÷ visitas que precisavam e têm dados depois (Resolvido, Resolvido com recorrência, Parcialmente resolvido, Não resolvido). “—” = sem visitas avaliáveis.
+  - Filtros: Período pela data da visita; Câmera = visitas que citam a câmera; Empresa = empresa do prefixo no monitoramento (visitas de prefixos fora do monitoramento saem quando há filtro de empresa).
 
 ## Garagem
 - Fontes verificadas: os 3 CSVs de monitoramento (**não têm coluna de garagem**), o `Relatório CFTV - 28.09.2026.xlsx` (**não tem coluna de garagem**) e o formulário de manutenção (coluna Garagem). A aba auxiliar “Planilha1” de um formulário antigo só lista nomes de garagem, sem prefixo.
@@ -135,10 +137,10 @@ tests/capturas.py               # validação no navegador (Playwright) + captur
 Pré-calculados no Python para a carga inicial ser leve:
 - `meta.json` — última atualização, datas, empresas, garagens, câmeras, cobertura por dia, parâmetros do intervalo.
 - `frota.json` (~3 MB, ~440 KB gzip) — por prefixo: empresa, garagem, câmeras; por câmera e dia, os estados presentes (máscara) e o último código; por veículo e dia, minutos online/falha/offline (base 36); dias com manutenção.
-- `manut.json` — resumo de cada visita (data/hora, técnico, câmeras, problema e ação em até 3 linhas).
+- `manut.json` — resumo de cada visita (data/hora, técnico, câmeras, garagem, precisava/resultado da análise, problema e ação em até 3 linhas).
 - `cam/<câmera>.json` — minutos por dia de cada câmera (carregado só quando o filtro de câmera é usado).
 - `detalhe/NN.json` — trechos da linha do tempo por câmera/dia e texto completo dos formulários, agrupados por `prefixo % 64` (carregado ao clicar).
-No navegador: índices por empresa/garagem/câmera/prefixo, filtros memorizados e só a página atual da tabela é desenhada.
+No navegador: índices por empresa/câmera/prefixo, filtros memorizados e rolagem virtual da tabela.
 
 ## Como atualizar
 

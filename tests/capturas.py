@@ -75,26 +75,39 @@ with sync_playwright() as p:
     pg.click('#pn-fechar'); pg.wait_for_timeout(300)
     ok(abs(larg(pg, '#p1-tabela') - w0) < 2, 'fechar o painel restaura a largura total')
 
-    # paginação alcança todas as linhas
-    total = int(pg.inner_text('#p1-pag').split(' de ')[1].split()[0].replace('.', ''))
-    pg.select_option('#p1-por', '100'); pg.wait_for_timeout(300)
-    ult = pg.query_selector_all('#p1-pag .pg[data-g]')[-2]
-    ult.click(); pg.wait_for_timeout(300)
-    info = pg.inner_text('#p1-pag').split('\n')[0]
-    ok(info.replace('.', '').endswith(f'de {total}') and f'–{total:,}'.replace(',', '.') in info, f'última página: "{info}"')
-    ok(total == len(frota['veiculos']), f'total de linhas = {total} prefixos')
+    # sem paginação: rolagem virtual até o fim
+    ok(pg.query_selector('#p1-pag, #p1-por, .paginacao') is None, 'sem controles de paginação')
+    total = int(pg.inner_text('#p1-cont').split()[0].replace('.', ''))
+    ok(total == len(frota['veiculos']), f'contagem "{pg.inner_text("#p1-cont")}" = {len(frota["veiculos"])} prefixos')
+    nlin = len(pg.query_selector_all('#p1-tabela .linha'))
+    ok(nlin < 120, f'rolagem virtual: {nlin} linhas desenhadas de {total}')
+    pg.eval_on_selector('#p1-tabela', 'e => { e.scrollTop = e.scrollHeight; }'); pg.wait_for_timeout(300)
+    ultima = pg.evaluate("() => { const ls = document.querySelectorAll('#p1-tabela .linha'); return ls[ls.length - 1].dataset.p; }")
+    vis = pg.evaluate("""() => { const t = document.getElementById('p1-tabela').getBoundingClientRect(); const ls = document.querySelectorAll('#p1-tabela .linha');
+                          const c = ls[ls.length - 1].querySelector('.fx2').getBoundingClientRect(); return c.bottom <= t.bottom + 1 && c.top >= t.top; }""")
+    ok(vis, f'fim da tabela alcançado pela rolagem (último prefixo desenhado {ultima})')
+    cab_top = pg.evaluate("() => document.querySelector('#p1-tabela .cel-h').getBoundingClientRect().top - document.getElementById('p1-tabela').getBoundingClientRect().top")
+    ok(abs(cab_top) <= 2, f'cabeçalho fixo após rolar ({cab_top:.0f}px)')
+    pg.eval_on_selector('#p1-tabela', 'e => { e.scrollTop = 0; }'); pg.wait_for_timeout(200)
 
     # filtros combinados
-    g = meta['garagens'][0]
-    pg.select_option('#f-garagem', g); pg.select_option('#f-camera', '21'); pg.click('#f-ok'); pg.wait_for_timeout(500)
-    n = int(pg.inner_text('#p1-pag').split(' de ')[1].split()[0].replace('.', ''))
-    esperado = sum(1 for v in frota['veiculos'] if v.get('g') == g and 21 in v['c'])
-    ok(n == esperado, f'Garagem "{g}" + câmera 21: {n} linhas (esperado {esperado})')
-    pg.select_option('#f-garagem', ''); pg.select_option('#f-camera', ''); pg.click('#f-ok'); pg.wait_for_timeout(300)
+    ok(pg.query_selector('#f-garagem') is None, 'sem filtro de Garagem')
+    emp = meta['empresas']
+    metro = [i for i, e in enumerate(emp) if 'METROPOLE' in e.upper()]
+    print('      METROPOLE agrupa:', [emp[i] for i in metro])
+    pg.select_option('#f-empresa', '*METROPOLE'); pg.select_option('#f-camera', '21'); pg.click('#f-ok'); pg.wait_for_timeout(500)
+    n = int(pg.inner_text('#p1-cont').split()[0].replace('.', ''))
+    esperado = sum(1 for v in frota['veiculos'] if v.get('e') in metro and 21 in v['c'])
+    ok(n == esperado, f'Empresa METROPOLE + câmera 21: {n} veículos (esperado {esperado})')
+    print('      cards METROPOLE+21:', [c.inner_text().replace(chr(10), ' ') for c in pg.query_selector_all('.kpi')])
+    pg.select_option('#f-empresa', ''); pg.select_option('#f-camera', ''); pg.click('#f-ok'); pg.wait_for_timeout(300)
+    print('      cards:', [c.inner_text().replace(chr(10), ' ') for c in pg.query_selector_all('.kpi')])
 
     # navegação -> página 2
-    pg.click('#nav'); pg.wait_for_selector('.rk'); pg.wait_for_timeout(400)
-    ok('#estatisticas' in pg.url and pg.query_selector('.donut svg') and pg.query_selector('#p2-linha svg path'), 'página 2 com ranking, rosca e linha')
+    pg.click('#nav'); pg.wait_for_selector('#p2-manut .rk'); pg.wait_for_timeout(400)
+    ok('#estatisticas' in pg.url and pg.query_selector('#p2-conexao table') and pg.query_selector('#p2-manut table') and pg.query_selector('#estat svg, .estat svg') is None,
+       'página 2 com ranking de conexão e ranking de manutenção, sem gráficos')
+    ok(pg.query_selector('#f-garagem') is None, 'página 2 sem filtro de Garagem')
     pg.screenshot(path=str(out / f'{pref}_3_estatisticas.png'), full_page=True)
     pg.click('#nav'); pg.wait_for_selector('.st')
     ok(not pg.url.endswith('#estatisticas'), 'voltar ao monitoramento')

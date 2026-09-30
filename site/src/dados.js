@@ -6,6 +6,11 @@ export const POS = { 21: 'Frontal', 22: 'Frente', 23: 'Corredor 1', 24: 'Corredo
 export const camNome = (c) => (POS[c] ? `Câmera ${c} · ${POS[c]}` : `Câmera id ${c}`);
 export const SEM_GARAGEM = 'Não informado';
 export const D = {};
+// Opção extra do filtro de Empresa: agrupa todas as empresas cujo nome contém METROPOLE (sem diferenciar maiúsculas/acentos)
+export const GRUPO_METROPOLE = '*METROPOLE';
+const semAcento = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+export const ehMetropole = (nome) => semAcento(nome).includes('METROPOLE');
+export const empresaPassa = (nome, filtro) => !filtro || (filtro === GRUPO_METROPOLE ? ehMetropole(nome) : nome === filtro);
 
 export async function carregar() {
   const [meta, frota, manut] = await Promise.all([obter('meta.json'), obter('frota.json'), obter('manut.json')]);
@@ -50,15 +55,14 @@ export function detalhe(p) {
   return detCache.get(k).then((d) => d[String(p)] || { t: {}, m: {} });
 }
 
-// Veículos que passam pelos filtros de cadastro (empresa, garagem, câmera, prefixo) — memoizado
+// Veículos que passam pelos filtros de cadastro (empresa, câmera, prefixo) — memoizado
 let memoKey = '', memoRes = [];
 export function veiculosFiltrados(F, comPrefixo = true) {
-  const key = [F.empresa, F.garagem, F.camera, comPrefixo ? F.prefixo : ''].join('|');
+  const key = [F.empresa, F.camera, comPrefixo ? F.prefixo : ''].join('|');
   if (key === memoKey) return memoRes;
   let base = D.veiculos;
   if (F.camera) base = D.idx.camera.get(F.camera) || [];
-  if (F.garagem) base = base.filter((v) => v.garagem === F.garagem);
-  if (F.empresa) base = base.filter((v) => v.empresa === F.empresa);
+  if (F.empresa) base = base.filter((v) => empresaPassa(v.empresa, F.empresa));
   const q = comPrefixo ? F.prefixo.split(/[\s,;]+/).filter(Boolean) : [];
   if (q.length) base = base.filter((v) => q.some((x) => String(v.p).includes(x)));
   memoKey = key; memoRes = base;
@@ -74,21 +78,22 @@ export function faixaDias(F) {
   return out;
 }
 
-// Estado do dia. Veículo: cada câmera com registro no dia está "com problema" se teve ao menos um registro offline ou
-// com erro. on = nenhuma com problema; fa = algumas; off = todas; nd = sem registro.
-// Uma câmera (filtro de câmera): on = só online; off = teve registro offline; fa = teve erro de SD (sem offline); nd.
+// Estado do dia a partir dos registros horários do dia (máscara por câmera: 1 = teve registro online ok,
+// 2 = teve registro com erro de SD, 4 = teve registro offline). Consideram-se as câmeras com registro no dia.
+// on = todas as câmeras online (sem erro) em todos os registros; off = todas offline em todos os registros;
+// fa = qualquer outra combinação com dados (erro de SD, offline em parte dos registros ou variação); nd = sem registro.
+// Com filtro de uma câmera, a mesma regra vale para essa câmera.
 export function estadoDia(v, i, cam) {
-  if (cam) {
-    const m = Number(v.k[cam]?.[i] || 0);
-    if (!m) return 'nd';
-    if (m & 4) return 'off';
-    if (m & 2) return 'fa';
-    return 'on';
+  let com = 0, soOn = 0, soOff = 0;
+  for (const c in v.k) {
+    if (cam && c !== String(cam)) continue;
+    const m = Number(v.k[c][i] || 0);
+    if (!m) continue;
+    com += 1;
+    if (m === 1) soOn += 1; else if (m === 4) soOff += 1;
   }
-  let com = 0, prob = 0;
-  for (const c in v.k) { const m = Number(v.k[c][i]); if (m) { com += 1; if (m & 6) prob += 1; } }
   if (!com) return 'nd';
-  return prob === 0 ? 'on' : prob === com ? 'off' : 'fa';
+  return soOn === com ? 'on' : soOff === com ? 'off' : 'fa';
 }
 
 // Tempos do dia (min) do veículo ou da câmera: [online, falha, offline]

@@ -166,7 +166,8 @@ def main(reusar=False):
     for e in eventos:
         fs = [form_por_id[i] for i in e['forms']]
         man_site.append({'i': e['idx'], 'p': e['prefixo'], 'd': e['data'], 'h': e['inicio'][11:16], 'tec': e['tecnicos'],
-                         'cams': e['cameras_formulario'], **resumo_manutencao(fs)})
+                         'cams': e['cameras_formulario'], 'g': (e['garagens'] or [None])[-1],
+                         'pr': e['precisava'], 'rs': e['resultado'], **resumo_manutencao(fs)})
         man_texto[e['prefixo']][e['idx']] = texto_completo(fs)
 
     # ---------------- detalhe: trechos da linha do tempo por câmera/dia (carregado sob demanda) ----------------

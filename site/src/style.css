@@ -50,6 +50,7 @@ main { padding: 16px var(--pad) var(--pad); }
 .kpi .rot { font-size: 12px; font-weight: 500; color: var(--txt2); display: flex; align-items: center; gap: 8px; }
 .kpi .rot i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
 .kpi .val { font-size: 24px; font-weight: 700; line-height: 32px; font-variant-numeric: tabular-nums; }
+.kpi .un { font-size: 11px; color: var(--txt2); line-height: 14px; }
 .kpi .val small { font-size: 11px; font-weight: 400; color: var(--txt2); margin-left: 6px; }
 
 /* Área principal + painel */
@@ -71,7 +72,8 @@ main { padding: 16px var(--pad) var(--pad); }
 .dia-h { flex-direction: column; justify-content: center; gap: 0; padding: 0; line-height: 13px; }
 .dia-h b { font-size: 11px; font-weight: 600; color: var(--txt); }
 .dia-h span { font-size: 9px; font-weight: 400; color: var(--txt2); }
-.linha { display: contents; }
+.linha, .linhas-v { display: contents; }
+.esp { grid-column: 1 / -1; height: 0; }
 .linha:hover > .cel { background: var(--hover); }
 .dia-c { justify-content: center; padding: 0; }
 .st { width: calc(100% - 6px); height: 18px; border-radius: 4px; position: relative; cursor: pointer; background: var(--nd); }
@@ -88,12 +90,7 @@ main { padding: 16px var(--pad) var(--pad); }
 .legenda span { display: inline-flex; align-items: center; gap: 6px; }
 .legenda i { width: 14px; height: 10px; border-radius: 3px; display: inline-block; }
 .legenda i.man { width: 6px; height: 6px; border-radius: 50%; background: var(--azul); }
-.paginacao { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--txt2); flex-wrap: wrap; }
-.paginacao .pg { min-width: 32px; height: 32px; border: 1px solid var(--borda); background: var(--card); border-radius: var(--r-ctl); cursor: pointer; padding: 0 8px; color: var(--txt); }
-.paginacao .pg:hover:not(:disabled) { background: var(--hover); border-color: #cbd5e1; }
-.paginacao .pg.atual { background: var(--sel); border-color: var(--azul); color: var(--azul); font-weight: 600; }
-.paginacao .pg:disabled { color: var(--txt3); cursor: default; }
-.paginacao select { height: 32px; border: 1px solid var(--borda); border-radius: var(--r-ctl); background: var(--card); padding: 0 6px; }
+.contagem { font-size: 11px; color: var(--txt2); font-variant-numeric: tabular-nums; }
 
 /* Tooltip */
 .tip { position: fixed; z-index: 90; pointer-events: none; display: none; width: 240px; background: var(--card); border: 1px solid var(--borda); border-radius: var(--r-ctl); box-shadow: 0 4px 12px rgba(15, 23, 42, .08); padding: 10px 12px; font-size: 11px; }
@@ -141,8 +138,7 @@ pre.bruto { white-space: pre-wrap; background: var(--bg); border-radius: 6px; pa
 .fundo-painel { display: none; }
 
 /* Estatísticas */
-.estat { display: grid; grid-template-columns: minmax(0, 3fr) minmax(300px, 2fr); gap: 12px; }
-.estat .larga { grid-column: 1 / -1; }
+.estat { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
 .painel-e { padding: 16px; }
 .painel-e h2 { font-size: 15px; font-weight: 600; margin: 0; }
 .painel-e .ph { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
@@ -155,13 +151,6 @@ table.rk { width: 100%; border-collapse: collapse; font-size: 12px; }
 .rk .bar span { flex: 1; height: 6px; background: var(--nd-bg); border-radius: 3px; overflow: hidden; min-width: 60px; }
 .rk .bar span i { display: block; height: 100%; background: var(--azul); border-radius: 3px; }
 .rk .bar em { font-style: normal; width: 44px; text-align: right; }
-.donut { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
-.donut ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; min-width: 180px; flex: 1; }
-.donut li { display: grid; grid-template-columns: 10px 1fr auto auto; gap: 8px; align-items: center; font-size: 12px; }
-.donut li i { width: 10px; height: 10px; border-radius: 3px; }
-.donut li .q { color: var(--txt2); font-variant-numeric: tabular-nums; }
-.donut li .p { font-weight: 600; font-variant-numeric: tabular-nums; width: 48px; text-align: right; }
-.grafico svg { width: 100%; height: 280px; display: block; }
 .vazio { color: var(--txt3); padding: 24px; text-align: center; }
 
 @media (max-width: 1279px) { :root { --pad: 16px; } .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

@@ -9,7 +9,7 @@ Herdadas do projeto anterior (`analise-cftv-manutencoes`) e adaptadas ao monitor
 5. No Relatório CFTV diário, “-” = câmera não instalada (não conta).
 6. Horários do BigQuery em UTC → exibir sempre em Brasília; dias parciais identificados.
 7. Estado: Online (tudo ok) / Erro SD/gravação (online com item em erro) / Offline.
-8. Tabela: célula verde (nenhuma câmera com problema no dia), âmbar (algumas), vermelho (todas); cinza = sem dados; com uma câmera no filtro, estado da câmera. Ponto azul só para manutenção. Sem texto nas células.
+8. Tabela: célula verde (todas as câmeras online em todos os registros do dia), vermelho (todas offline em todos os registros), âmbar (qualquer outro caso com dados); cinza = sem dados; com uma câmera no filtro, a mesma regra para ela. Ponto azul só para manutenção. Sem texto nas células.
 9. Células do formulário podem ter vários itens: separar, padronizar e manter o texto original.
 10. Recorrência na mesma câmera ≠ problema novo em outra câmera.
 11. Pendência detectada por palavras-chave, sempre com o trecho.

@@ -1,18 +1,21 @@
-// Página 1 — Monitoramento: filtros, 4 cards, tabela (matriz por data), legenda, paginação e painel de detalhe.
+// Página 1 — Monitoramento: filtros, 4 cards, tabela (matriz por data, rolagem virtual), legenda e painel de detalhe.
 import { F, barraFiltros } from './main.js';
 import { D, veiculosFiltrados, faixaDias, estadoDia, tempos, dispPeriodo, ultimoCodigo, catCodigo, camNome, fmtN, fmtP, diaSemana, dmy, dur, esc, SEM_GARAGEM } from './dados.js';
 import { abrirPainel, fecharPainel, painelAberto } from './painel.js';
 
-const S = { pag: 1, porPag: 20, ord: { k: 'garagem', dir: 1 }, sel: null };
+const S = { ord: { k: 'garagem', dir: 1 }, sel: null };
+// Rolagem virtual: só as linhas visíveis + BUFFER acima/abaixo são desenhadas; espaçadores mantêm a altura total.
+const BUFFER = 12;
+const V = { linhas: [], dias: [], ini: -1, fim: -1, raf: 0 };
 let memo = { key: '', linhas: [] };
-const NOME = { on: 'Online', off: 'Offline', fa: 'Falha', nd: 'Sem dados' };
+const NOME = { on: 'Todo online', off: 'Todo offline', fa: 'Erro SD ou variação', nd: 'Sem dados' };
 
 export function paginaMonitoramento(app) {
   app.innerHTML = `<section id="p1-filtros"></section><section class="cards" id="p1-cards"></section>
     <section class="area" id="p1-area"><div class="bloco-tabela"><div class="tabela" id="p1-tabela"></div>
-      <div class="rodape-tab"><div class="legenda"><span><i style="background:var(--on)"></i>Online</span><span><i style="background:var(--off)"></i>Offline</span><span><i style="background:var(--fa)"></i>Falha</span><span><i style="background:var(--nd)"></i>Sem dados</span><span><i class="man"></i>Manutenção</span></div>
-      <div class="paginacao" id="p1-pag"></div></div></div><div id="p1-painel" class="oculto"></div></section><div class="fundo-painel" id="p1-fundo"></div>`;
-  barraFiltros(app.querySelector('#p1-filtros'), { prefixo: true }, () => { S.pag = 1; S.sel = null; fecharPainel(); atualizar(); });
+      <div class="rodape-tab"><div class="legenda"><span><i style="background:var(--on)"></i>Todo online</span><span><i style="background:var(--off)"></i>Todo offline</span><span><i style="background:var(--fa)"></i>Erro SD ou variação</span><span><i style="background:var(--nd)"></i>Sem dados</span><span><i class="man"></i>Manutenção</span></div>
+      <div class="contagem" id="p1-cont"></div></div></div><div id="p1-painel" class="oculto"></div></section><div class="fundo-painel" id="p1-fundo"></div>`;
+  barraFiltros(app.querySelector('#p1-filtros'), { prefixo: true }, () => { S.sel = null; fecharPainel(); atualizar(); });
   app.querySelector('#p1-fundo').onclick = () => fecharPainel();
   window.onresize = ajustarAltura;
   atualizar();
@@ -56,38 +59,58 @@ function cards(vs, dias) {
   });
   const tot = on + fa + off;
   const pc = (n, t) => (t ? `<small>${fmtP((100 * n) / t)}</small>` : '');
-  const card = (cor, rot, val, extra) => `<div class="card kpi"><div class="rot"><i style="background:${cor}"></i>${rot}</div><div class="val">${fmtN(val)}${extra}</div></div>`;
-  document.getElementById('p1-cards').innerHTML = card('var(--on)', 'Funcionais', on, pc(on, tot)) + card('var(--fa)', 'Erro de SD card', fa, pc(fa, tot))
-    + card('var(--off)', '100% offline', off, pc(off, tot)) + card('var(--azul)', 'Veículos com falha', veic, pc(veic, vs.length));
+  const card = (cor, rot, val, extra, un) => `<div class="card kpi"><div class="rot"><i style="background:${cor}"></i>${rot}</div><div><div class="val">${fmtN(val)}${extra}</div><div class="un">${un}</div></div></div>`;
+  document.getElementById('p1-cards').innerHTML = card('var(--on)', 'Câmeras funcionais', on, pc(on, tot), 'câmeras') + card('var(--fa)', 'Câmeras com erro de SD card', fa, pc(fa, tot), 'câmeras')
+    + card('var(--off)', 'Câmeras 100% offline', off, pc(off, tot), 'câmeras') + card('var(--azul)', 'Veículos com falha', veic, pc(veic, vs.length), 'veículos');
 }
 
 function tabela(linhas, dias) {
   const el = document.getElementById('p1-tabela');
   const n = linhas.length;
-  const np = Math.max(1, Math.ceil(n / S.porPag));
-  S.pag = Math.min(S.pag, np);
-  const vis = linhas.slice((S.pag - 1) * S.porPag, S.pag * S.porPag);
-  const cam = F.camera || null;
+  V.linhas = linhas; V.dias = dias; V.ini = -1; V.fim = -1;
+  document.getElementById('p1-cont').textContent = `${fmtN(n)} ${n === 1 ? 'veículo' : 'veículos'}`;
+  if (!n) { el.innerHTML = '<div class="vazio">Nenhum veículo para os filtros.</div>'; el.onscroll = null; ajustarAltura(); return; }
   const cols = `190px 85px 105px repeat(${dias.length}, minmax(var(--col-dia), 1fr))`;
   const seta = (k) => `<span class="seta">${S.ord.k === k ? (S.ord.dir > 0 ? '↑' : '↓') : ''}</span>`;
   const cab = `<div class="cel-h fx fx1 ord" data-o="garagem">Garagem${seta('garagem')}</div><div class="cel-h fx fx2 ord" data-o="prefixo">Prefixo${seta('prefixo')}</div><div class="cel-h fx fx3 ord" data-o="disp">Disponibilidade${seta('disp')}</div>`
     + dias.map((i) => `<div class="cel-h dia-h"><b>${D.dias[i].slice(8, 10)}</b><span>${diaSemana(D.dias[i])}</span></div>`).join('');
-  const corpo = vis.map((r) => {
+  el.innerHTML = `<div class="grade" style="grid-template-columns:${cols};min-width:calc(380px + ${dias.length} * var(--col-dia))">${cab}<div class="esp" id="p1-esp1"></div><div class="linhas-v" id="p1-corpo"></div><div class="esp" id="p1-esp2"></div></div>`;
+  el.scrollTop = 0;
+  el.querySelectorAll('.ord').forEach((h) => h.addEventListener('click', () => {
+    const k = h.dataset.o; S.ord = { k, dir: S.ord.k === k ? -S.ord.dir : 1 }; atualizar();
+  }));
+  el.onscroll = () => { if (!V.raf) V.raf = requestAnimationFrame(() => { V.raf = 0; desenharVisiveis(); }); };
+  eventos(el);
+  ajustarAltura();
+  desenharVisiveis();
+}
+
+function alturaLinha() {
+  return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--lin')) || 30;
+}
+
+function desenharVisiveis(forcar = false) {
+  const el = document.getElementById('p1-tabela');
+  const corpo = document.getElementById('p1-corpo');
+  if (!el || !corpo) return;
+  const h = alturaLinha(), n = V.linhas.length;
+  const topo = Math.max(0, el.scrollTop - 42);
+  const ini = Math.max(0, Math.floor(topo / h) - BUFFER);
+  const fim = Math.min(n, Math.ceil((topo + el.clientHeight) / h) + BUFFER);
+  if (!forcar && ini === V.ini && fim === V.fim) return;
+  V.ini = ini; V.fim = fim;
+  const cam = F.camera || null;
+  document.getElementById('p1-esp1').style.height = `${ini * h}px`;
+  document.getElementById('p1-esp2').style.height = `${(n - fim) * h}px`;
+  corpo.innerHTML = V.linhas.slice(ini, fim).map((r) => {
     const v = r.v;
     return `<div class="linha" data-p="${v.p}"><div class="cel fx fx1 ${v.garagem === SEM_GARAGEM ? 'muted' : ''}" title="${esc(v.garagem)}">${esc(v.garagem)}</div><div class="cel fx fx2">${v.p}</div><div class="cel fx fx3 disp">${fmtP(r.disp)}</div>`
-      + dias.map((i) => {
+      + V.dias.map((i) => {
         const e = estadoDia(v, i, cam);
         const sel = S.sel && S.sel.p === v.p && S.sel.i === i ? ' sel' : '';
         return `<div class="cel dia-c"><div class="st ${e}${sel}" data-i="${i}">${v.mv[i] ? '<span class="man"></span>' : ''}</div></div>`;
       }).join('') + '</div>';
   }).join('');
-  el.innerHTML = n ? `<div class="grade" style="grid-template-columns:${cols};min-width:calc(380px + ${dias.length} * var(--col-dia))">${cab}${corpo}</div>` : '<div class="vazio">Nenhum veículo para os filtros.</div>';
-  el.querySelectorAll('.ord').forEach((h) => h.addEventListener('click', () => {
-    const k = h.dataset.o; S.ord = { k, dir: S.ord.k === k ? -S.ord.dir : (k === 'disp' ? 1 : 1) }; S.pag = 1; atualizar();
-  }));
-  eventos(el);
-  paginacao(n, np);
-  ajustarAltura();
 }
 
 function eventos(el) {
@@ -136,33 +159,11 @@ function conteudoTip(v, i) {
     + (!cam && camsDia.length > 1 ? `<div class="sub" style="margin-top:4px">Tempos somados de ${camsDia.length} câmeras</div>` : '');
 }
 
-function paginas(atual, total) {
-  if (total <= 7) return Array.from({ length: total }, (_, k) => k + 1);
-  const s = new Set([1, total, atual, atual - 1, atual + 1]);
-  if (atual <= 3) [2, 3, 4].forEach((x) => s.add(x));
-  if (atual >= total - 2) [total - 1, total - 2, total - 3].forEach((x) => s.add(x));
-  const arr = [...s].filter((x) => x >= 1 && x <= total).sort((a, b) => a - b);
-  const out = [];
-  arr.forEach((x, k) => { if (k && x - arr[k - 1] > 1) out.push('…'); out.push(x); });
-  return out;
-}
-
-function paginacao(n, np) {
-  const el = document.getElementById('p1-pag');
-  const a = n ? (S.pag - 1) * S.porPag + 1 : 0, b = Math.min(n, S.pag * S.porPag);
-  el.innerHTML = `<span>Mostrando ${fmtN(a)}–${fmtN(b)} de ${fmtN(n)}</span>
-    <button class="pg" data-g="${S.pag - 1}" ${S.pag > 1 ? '' : 'disabled'} aria-label="Página anterior">‹</button>
-    ${paginas(S.pag, np).map((x) => (x === '…' ? '<span class="muted">…</span>' : `<button class="pg ${x === S.pag ? 'atual' : ''}" data-g="${x}">${x}</button>`)).join('')}
-    <button class="pg" data-g="${S.pag + 1}" ${S.pag < np ? '' : 'disabled'} aria-label="Próxima página">›</button>
-    <select id="p1-por" aria-label="Linhas por página">${[20, 50, 100].map((x) => `<option value="${x}" ${x === S.porPag ? 'selected' : ''}>${x} / página</option>`).join('')}</select>`;
-  el.querySelectorAll('[data-g]').forEach((bt) => bt.addEventListener('click', () => { S.pag = Number(bt.dataset.g); atualizar(); }));
-  el.querySelector('#p1-por').onchange = (e) => { S.porPag = Number(e.target.value); S.pag = 1; atualizar(); };
-}
-
 function ajustarAltura() {
   const el = document.getElementById('p1-tabela');
   if (!el) return;
   const top = el.getBoundingClientRect().top + window.scrollY;
   el.style.maxHeight = `${Math.max(260, window.innerHeight - top - 64)}px`;
+  desenharVisiveis();
 }
 export { painelAberto };
