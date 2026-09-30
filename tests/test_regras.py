@@ -56,8 +56,10 @@ def test_parcial_e_sem_problema_antes():
 
 
 def test_janela_antes_24h_e_sem_dados():
-    g = _regs([(21, '2026-09-09 09:00', 'O'), (21, '2026-09-10 11:00', 'N')])   # 25 h antes: fora da janela
+    g = _regs([(21, '2026-09-08 23:00', 'O'), (21, '2026-09-10 11:00', 'N')])   # antes do dia anterior: fora da janela
     assert analise.avaliar(g, EV, None, FIM)['precisava'] == 'Sem dados'
+    g = _regs([(21, '2026-09-09 01:00', 'O'), (21, '2026-09-10 11:00', 'N')])   # dia anterior (33 h antes): dentro da janela
+    assert analise.avaliar(g, EV, None, FIM)['precisava'] == 'Sim'
 
 
 def test_depois_limitado_pela_proxima_visita():

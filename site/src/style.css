@@ -161,3 +161,4 @@ table.rk { width: 100%; border-collapse: collapse; font-size: 12px; }
   .estat { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 767px) { :root { --pad: 12px; } .cards { grid-template-columns: minmax(0, 1fr); } .w220, .w180, .w280 { width: 100%; } .campo { flex: 1 1 100%; } .subtitulo { display: none; } }
+.rk tr.total td { font-weight: 600; border-top: 1px solid var(--borda); border-bottom: none; }

@@ -94,13 +94,14 @@ def avaliar(g, e, prox, fim_dados):
     t0 = pd.Timestamp(e['inicio'])
     t1 = pd.Timestamp(e['fim'])
     limite = pd.Timestamp(prox['inicio']) if prox else None
-    r = {'janela_antes_h': config.JANELA_ANTES_H, 'depois_ate': _fmt(limite) if limite is not None else _fmt(fim_dados),
+    ini_janela = t0.normalize() - pd.Timedelta(days=config.JANELA_ANTES_DIAS)
+    r = {'janela_antes_desde': _fmt(ini_janela), 'depois_ate': _fmt(limite) if limite is not None else _fmt(fim_dados),
          'depois_limitado_por_nova_manutencao': limite is not None}
     if g is None or g.empty:
         r.update({'precisava': 'Sem dados', 'resultado': 'Sem dados para avaliar', 'motivo': 'Prefixo sem registros no monitoramento',
                   'cameras': [], 'antes': None, 'depois': None, 'novo_problema': []})
         return r
-    antes = g[(g.ts_local >= t0 - pd.Timedelta(hours=config.JANELA_ANTES_H)) & (g.ts_local < t0)]
+    antes = g[(g.ts_local >= ini_janela) & (g.ts_local < t0)]
     depois = g[g.ts_local > t1]
     if limite is not None:
         depois = depois[depois.ts_local < limite]
@@ -141,10 +142,10 @@ def avaliar(g, e, prox, fim_dados):
         ini, fim = g.ts_local.min(), g.ts_local.max()
         if t0 <= ini:
             mot = f'visita anterior ao início do monitoramento deste prefixo ({ini:%d/%m/%Y %H:%M})'
-        elif t0 - pd.Timedelta(hours=config.JANELA_ANTES_H) > fim:
+        elif ini_janela > fim:
             mot = f'visita posterior ao fim do monitoramento deste prefixo ({fim:%d/%m/%Y %H:%M})'
         else:
-            mot = f"sem registros do monitoramento nas {config.JANELA_ANTES_H} h anteriores à visita"
+            mot = "sem registros do monitoramento no dia da visita (antes do horário) nem no dia anterior"
         r.update({'precisava': 'Sem dados', 'resultado': 'Sem dados para avaliar', 'motivo': mot})
         return r
     if not prob_antes:

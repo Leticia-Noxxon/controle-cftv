@@ -44,10 +44,11 @@ Quebras `<br>`/linhas/`;` viram itens; removem-se marcadores, linhas vazias, fra
 ## Página 2 — Estatísticas
 Filtros Empresa (com a opção METROPOLE), Câmera e Período (afetam tudo).
 - **Ranking de conexão das câmeras** (só dados de monitoramento), uma linha por empresa real, ordenado pela menor disponibilidade de conexão: disponibilidade = tempo online ÷ tempo monitorado no período (mesma regra da página 1, sem “Sem dados”); câmeras com falha e veículos com falha = mesma definição dos cards (último registro da câmera no período offline ou com erro de SD).
-- **Ranking de manutenção** (formulário + análise antes/depois do pipeline), por **garagem do formulário** (todas as visitas têm garagem; muitas não têm empresa no monitoramento), ordenado pelo número de visitas:
-  - *Visitas* = formulários do mesmo prefixo no mesmo dia; *Veículos visitados* = prefixos distintos.
-  - *% precisava* = visitas com câmera offline/erro nas 24 h anteriores ÷ visitas com dados de monitoramento antes (Sim + Não).
-  - *% resolvido* = (Resolvido + Resolvido com recorrência) ÷ visitas que precisavam e têm dados depois (Resolvido, Resolvido com recorrência, Parcialmente resolvido, Não resolvido). “—” = sem visitas avaliáveis.
+- **Ranking de manutenção** (formulário + análise antes/depois do pipeline): uma linha por **garagem do formulário**, com **contagem de veículos** (prefixos distintos), ordenada por *Veículos com manutenção* (decrescente), e uma linha Total. Cada veículo entra na garagem do seu formulário mais recente no período (o Total não duplica).
+  - *Veículos com manutenção* = ao menos uma visita no período (visita = formulários do mesmo prefixo no mesmo dia).
+  - *Com reincidência* = manutenção em dois ou mais dias diferentes no período.
+  - *Precisavam* = ao menos uma visita em que o monitoramento mostrou câmera offline ou com erro de SD na janela **do início (00:00) do dia anterior até o horário da visita** (cobre o dia da visita antes do horário e o dia anterior inteiro).
+  - *Resolvidos (sem recorrência)* = dos que precisavam, a última visita necessária foi classificada como **Resolvido** (todas as câmeras com problema antes voltaram ao normal depois da visita e não falharam de novo até a próxima visita ou o fim dos dados). “Resolvido com recorrência” **não** conta.
   - Filtros: Período pela data da visita; Câmera = visitas que citam a câmera; Empresa = empresa do prefixo no monitoramento (visitas de prefixos fora do monitoramento saem quando há filtro de empresa).
 
 ## Garagem
@@ -111,7 +112,7 @@ Os arquivos brutos **não são versionados** (ficam em `data/raw/`, ignorado pel
 
 ### Manutenções: precisava? resolveu?
 - **Visita** = formulários do mesmo prefixo no mesmo dia (679 formulários → 661 visitas).
-- **Precisava?** Sim = algum registro offline/erro nas **24 h anteriores** ao horário da visita; Não = todos os registros online sem erro; Sem dados = nenhum registro nessa janela (visitas de agosto, anteriores ao início do monitoramento; visitas depois de 28/09 20:59; prefixos fora do monitoramento).
+- **Precisava?** Sim = algum registro offline/erro **do início (00:00) do dia anterior até o horário da visita**; Não = todos os registros online sem erro; Sem dados = nenhum registro nessa janela (visitas de agosto, anteriores ao início do monitoramento; visitas depois de 28/09 20:59; prefixos fora do monitoramento).
 - **Depois** = registros após o horário da visita até a próxima visita do mesmo prefixo ou o fim dos dados.
 - Calculado no script e gravado em `data/processed/manutencoes_completo.json` e `manutencoes_eventos.csv`.
 - Resultado (considerando as câmeras com problema antes): **Resolvido** (todas tiveram registro online sem erro depois e não voltaram a falhar), **Resolvido com recorrência** (normalizaram, mas voltaram a falhar — mesmo que em um único registro; o tempo até voltar e o nº de registros aparecem no detalhe), **Parcialmente resolvido**, **Não resolvido**, **Sem problema antes**, **Sem dados para avaliar**.
@@ -153,4 +154,4 @@ cd site && npm ci && npm run build          # ou npm run dev para ver localmente
 git add -A && git commit -m "Atualiza dados" && git push   # o GitHub Actions publica no Pages
 ```
 
-Parâmetros (janela “antes” de 24 h, intervalo nominal de 60 min, tolerância de 65 min) ficam em `scripts/pipeline/config.py`.
+Parâmetros (janela “antes” = dia anterior + dia da visita até o horário, intervalo nominal de 60 min, tolerância de 65 min) ficam em `scripts/pipeline/config.py`.

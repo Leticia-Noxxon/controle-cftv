@@ -24,8 +24,9 @@ BIT_CAMERA = {21: 0, 22: 1, 23: 2, 24: 3, 25: 4, 26: 5, 1007: 6}
 INTERVALO_NOMINAL_S = 3600
 LACUNA_MAX_S = 3900
 
-# Janela "antes" da manutenção
-JANELA_ANTES_H = 24
+# Janela "antes" da manutenção: do início (00:00) do dia anterior à visita até o horário da visita
+# (cobre o dia da visita antes do horário e o dia anterior inteiro; sempre ≥ 24 h)
+JANELA_ANTES_DIAS = 1
 
 
 def rotulo_camera(n):

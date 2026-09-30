@@ -5,7 +5,7 @@ import { D, veiculosFiltrados, faixaDias, tempos, ultimoCodigo, empresaPassa, fm
 export function paginaEstatisticas(app) {
   app.innerHTML = `<section id="p2-filtros"></section><section class="estat">
     <div class="card painel-e"><div class="ph"><div><h2>Ranking de conexão das câmeras</h2><div class="sub">Ordenado pela menor disponibilidade de conexão no período</div></div></div><div id="p2-conexao"></div></div>
-    <div class="card painel-e"><div class="ph"><div><h2>Ranking de manutenção</h2><div class="sub">Visitas do formulário de manutenção, por garagem, ordenadas pelo número de visitas</div></div></div><div id="p2-manut"></div></div></section>`;
+    <div class="card painel-e"><div class="ph"><div><h2>Ranking de manutenção</h2><div class="sub">Nº de veículos · reincidência = 2+ dias · precisavam = falha no dia da visita ou no anterior · resolvidos = sem recorrência</div></div></div><div id="p2-manut"></div></div></section>`;
   barraFiltros(app.querySelector('#p2-filtros'), { prefixo: false }, atualizar);
   window.onresize = null;
   atualizar();
@@ -42,31 +42,41 @@ function conexao() {
     : '<div class="vazio">Sem dados para os filtros.</div>';
 }
 
-// Manutenção (formulário + análise antes/depois já calculada no pipeline), por garagem do formulário.
-// % precisava = visitas com problema nas 24 h anteriores ÷ visitas avaliáveis (Sim + Não).
-// % resolvido = (Resolvido + Resolvido com recorrência) ÷ visitas que precisavam e têm dados depois.
-const AVALIADO = new Set(['Resolvido', 'Resolvido com recorrência', 'Parcialmente resolvido', 'Não resolvido']);
-const RESOLVIDO = new Set(['Resolvido', 'Resolvido com recorrência']);
+// Manutenção (formulário + análise antes/depois do pipeline), contagem de VEÍCULOS (prefixos distintos) por garagem.
+// Cada veículo entra na garagem do seu formulário mais recente no período (a linha Total é a soma, sem duplicar).
+// Com manutenção = ao menos uma visita; Com reincidência = visitas em 2+ dias diferentes (visita = prefixo + dia);
+// Precisavam = ao menos uma visita com precisava = 'Sim' (câmera offline/erro de SD do início do dia anterior até a visita);
+// Resolvidos = dos que precisavam, a última visita com precisava = 'Sim' teve resultado 'Resolvido'
+// ('Resolvido com recorrência' NÃO conta).
 function manutencao() {
-  const g = new Map();
+  const porP = new Map();
   D.manut.forEach((m) => {
     if (F.de && m.d < F.de) return;
     if (F.ate && m.d > F.ate) return;
     if (F.camera && !(m.cams || []).map(String).includes(F.camera)) return;
     if (F.empresa) { const v = D.porPrefixo.get(Number(m.p)); if (!v || !empresaPassa(v.empresa, F.empresa)) return; }
-    const nome = m.g || 'Não informado';
-    const r = g.get(nome) || { nome, visitas: 0, veic: new Set(), sim: 0, aval: 0, resolv: 0, avalRes: 0 };
-    r.visitas += 1; r.veic.add(m.p);
-    if (m.pr === 'Sim' || m.pr === 'Não') { r.aval += 1; if (m.pr === 'Sim') r.sim += 1; }
-    if (AVALIADO.has(m.rs)) { r.avalRes += 1; if (RESOLVIDO.has(m.rs)) r.resolv += 1; }
+    if (!porP.has(m.p)) porP.set(m.p, []);
+    porP.get(m.p).push(m);
+  });
+  const g = new Map();
+  const tot = { nome: 'Total', com: 0, reinc: 0, prec: 0, resolv: 0 };
+  porP.forEach((vs) => {
+    vs.sort((a, b) => (a.d + a.h).localeCompare(b.d + b.h));
+    const nome = vs[vs.length - 1].g || 'Não informado';
+    const r = g.get(nome) || { nome, com: 0, reinc: 0, prec: 0, resolv: 0 };
+    const dias = new Set(vs.map((m) => m.d));
+    const precisou = vs.filter((m) => m.pr === 'Sim');
+    const x = { com: 1, reinc: dias.size > 1 ? 1 : 0, prec: precisou.length ? 1 : 0, resolv: precisou.length && precisou[precisou.length - 1].rs === 'Resolvido' ? 1 : 0 };
+    Object.keys(x).forEach((k) => { r[k] += x[k]; tot[k] += x[k]; });
     g.set(nome, r);
   });
-  const pc = (a, b) => (b ? fmtP((100 * a) / b) : '—');
-  const rows = [...g.values()].sort((a, b) => b.visitas - a.visitas || a.nome.localeCompare(b.nome, 'pt-BR'));
-  document.getElementById('p2-manut').innerHTML = rows.length ? `<table class="rk"><thead><tr><th>#</th><th>Garagem</th><th class="n">Visitas</th><th class="n">Veículos visitados</th>
-      <th class="n" title="Visitas com câmera offline ou com erro nas 24 h anteriores ÷ visitas com dados de monitoramento antes">% precisava</th>
-      <th class="n" title="Resolvido + Resolvido com recorrência ÷ visitas que precisavam e têm dados depois">% resolvido</th></tr></thead>
-    <tbody>${rows.map((r, k) => `<tr><td>${k + 1}</td><td>${esc(r.nome)}</td><td class="n">${fmtN(r.visitas)}</td><td class="n">${fmtN(r.veic.size)}</td>
-      <td class="n" title="${r.sim} de ${r.aval}">${pc(r.sim, r.aval)}</td><td class="n" title="${r.resolv} de ${r.avalRes}">${pc(r.resolv, r.avalRes)}</td></tr>`).join('')}</tbody></table>`
+  const rows = [...g.values()].sort((a, b) => b.com - a.com || a.nome.localeCompare(b.nome, 'pt-BR'));
+  const td = (r) => `<td class="n">${fmtN(r.com)}</td><td class="n">${fmtN(r.reinc)}</td><td class="n">${fmtN(r.prec)}</td><td class="n">${fmtN(r.resolv)}</td>`;
+  document.getElementById('p2-manut').innerHTML = rows.length ? `<table class="rk"><thead><tr><th>Garagem</th>
+      <th class="n" title="Veículos (prefixos distintos) com ao menos uma manutenção no período">Com manutenção</th>
+      <th class="n" title="Veículos com manutenção em dois ou mais dias diferentes no período">Reincidentes</th>
+      <th class="n" title="Veículos com câmera offline ou com erro de SD no dia da visita (antes do horário) ou no dia anterior">Precisavam</th>
+      <th class="n" title="Dos que precisavam: última visita necessária com todas as câmeras normalizadas depois e sem nova falha ('Resolvido com recorrência' não conta)">Resolvidos</th></tr></thead>
+    <tbody>${rows.map((r) => `<tr><td>${esc(r.nome)}</td>${td(r)}</tr>`).join('')}<tr class="total"><td>Total</td>${td(tot)}</tr></tbody></table>`
     : '<div class="vazio">Nenhuma visita para os filtros.</div>';
 }
