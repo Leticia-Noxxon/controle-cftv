@@ -47,7 +47,7 @@ def cabecalhos(pg):
 
 def total(pg, chave):
     """valor da linha Total na coluna data-o=chave"""
-    return pg.evaluate("""(k) => { const ths = [...document.querySelectorAll('#v-tabela thead tr:nth-child(2) th')];
+    return pg.evaluate("""(k) => { const ths = [...document.querySelectorAll('#v-tabela thead th[data-o]')].filter((t) => t.dataset.o !== 'g');
         const i = ths.findIndex((t) => t.dataset.o === k); if (i < 0) return null;
         return document.querySelectorAll('#v-tabela tfoot td')[i + 1].textContent; }""", chave)
 
@@ -71,6 +71,15 @@ def verificar_os(arq, cams, nome):
         ok(not any(f'Câm {c}' in o for o in obs for c in range(21, 27) if f'Câm {c}' != cams[0]), f'{nome}: observação só da câmera escolhida')
     man = [r[-1] for r in dados if r[-1] and r[-1] != '—']
     ok(all(len(m) > 12 and m[2] == '/' and not any(x in m for x in ('Ã£', 'Ã§', 'Ã©', 'Ã¡', '�')) for m in man), f'{nome}: Última manutenção com data e resumo limpo ({len(man)} preenchidas)')
+    fmt = set()
+    for r in range(1, min(ws.max_row, 200) + 1):
+        for c in range(1, len(cab) + 1):
+            x = ws.cell(row=r, column=c)
+            b_ = x.border
+            fmt.add((x.font.name, float(x.font.sz), any(getattr(b_, k).style for k in ('left', 'right', 'top', 'bottom'))))
+    ok(fmt <= {('Calibri', 10.0, False)}, f'{nome}: Calibri 10 e sem bordas ({fmt})')
+    al = {(cab[c - 1], ws.cell(row=r, column=c).alignment.horizontal, ws.cell(row=r, column=c).alignment.vertical) for r in range(1, 60) for c in range(1, len(cab) + 1)}
+    ok(all((h == 'left') == (n in ('Observação técnica', 'Última manutenção')) and v == 'center' for n, h, v in al), f'{nome}: centralizado, exceto Observação técnica e Última manutenção (à esquerda)')
     ok(ws.freeze_panes == 'D2' and ws.auto_filter.ref and ws.page_setup.orientation == 'landscape' and str(ws.page_setup.paperSize) == '9' and ws.sheet_properties.pageSetUpPr.fitToPage,
        f'{nome}: cabeçalho congelado, filtros, A4 paisagem ajustada à largura')
     return dados
@@ -95,28 +104,31 @@ with sync_playwright() as p:
     ok(pg.query_selector('.subtitulo') is None, 'sem subtítulo')
     ok(pg.inner_text('label[for="f-empresa"]') == 'Empresa', 'rótulo do filtro = Empresa')
     upd = pg.evaluate("() => { const e = document.getElementById('upd'), r = e.getBoundingClientRect(); return [getComputedStyle(e).position, innerWidth - r.right, innerHeight - r.bottom, e.textContent]; }")
-    ok(upd[0] == 'fixed' and upd[1] < 40 and upd[2] < 40 and 'Última atualização' in upd[3], f'Última atualização fixa no canto inferior direito ({upd[3]})')
+    ok(upd[0] in ('fixed', 'static') and upd[1] < 40 and upd[2] < 40 and 'Última atualização' in upd[3], f'Última atualização fixa no canto inferior direito ({upd[3]})')
+    disc = pg.evaluate("() => { const e = document.getElementById('upd'), cs = getComputedStyle(e); return [cs.backgroundColor, cs.boxShadow, e.getBoundingClientRect().top, document.querySelector('.app').getBoundingClientRect().bottom]; }")
+    ok(disc[0] in ('rgba(0, 0, 0, 0)', 'transparent') and disc[1] == 'none' and disc[2] >= disc[3] - 0.5, f'Última atualização discreta (sem pílula/sombra) e fora do conteúdo (topo {disc[2]:.0f} ≥ fim do conteúdo {disc[3]:.0f})')
 
     # ---------------- Aba 1: Visão geral ----------------
     cards = {c.get_attribute('data-card'): num(c.query_selector('.val').inner_text()) for c in pg.query_selector_all('.kpi')}
     print('      cards:', cards)
     ok(len(cards) == 4 and pg.query_selector('.kpi .un') is None, '4 cards sem palavra de unidade')
-    deltas = pg.evaluate("() => [...document.querySelectorAll('.kpi')].map((c) => { const d = c.querySelector('.delta'); return d ? [c.dataset.card, d.className, d.textContent, d.title] : null; })")
-    print('      variações:', [d[:3] for d in deltas if d])
-    ok(all(d and 'anterior' in d[3].lower() for d in deltas), 'variação vs dia anterior em todos os cards, com base na dica')
-    coer = True
-    for card, cls, txt, _ in deltas:
-        if '▲' in txt:
-            coer &= ('bom' in cls) == (card == 'on')
-        elif '▼' in txt:
-            coer &= ('ruim' in cls) == (card == 'on')
-    ok(coer, 'cores das setas: funcionais sobe = verde; demais sobe = vermelho')
+    import re
+    deltas = pg.evaluate("""() => [...document.querySelectorAll('.kpi')].map((c) => { const d = c.querySelector('.delta'), r = c.getBoundingClientRect(), v = c.querySelector('.val').getBoundingClientRect(), dr = d.getBoundingClientRect();
+        return [c.dataset.card, d.textContent, d.title, getComputedStyle(d).color, (v.left + v.right) / 2 - (r.left + r.right) / 2, r.right - dr.right, dr.top - r.top]; })""")
+    print('      variações:', [d[:2] for d in deltas])
+    ok(all(re.fullmatch(r'[↑↓=] [\d.]+', d[1]) and 'anterior' in d[2].lower() for d in deltas), 'variação "↑ 126" sem data, base na dica')
+    ok(len({d[3] for d in deltas}) == 1 and all(d[5] < 30 and d[6] < 30 for d in deltas), f'variação em cinza neutro no canto superior direito ({deltas[0][3]})')
+    ok(all(abs(d[4]) < 45 for d in deltas), f'número centralizado no card (desvios {[round(d[4]) for d in deltas]})')
+    pg.locator('#v-cards').screenshot(path=str(out / f'{pref}_1b_cards.png'))
+    pg.locator('#v-cards .kpi').first.screenshot(path=str(out / f'{pref}_1c_card_zoom.png'), scale='device')
     ok(pg.query_selector('#v-graf') is None and pg.query_selector('.vg-graf') is None, 'gráfico Evolução diária removido da página')
     ok(pg.inner_text('.vg-bar h2') == 'Conexão por Empresa' and pg.query_selector('.vg-bar .sub') is None, 'título "Conexão por Empresa", sem legenda de contagem')
     heads = cabecalhos(pg)
     print('      colunas:', heads)
-    ok(heads[:5] == ['Veículos', 'Funcionais', '1+ câm. c/ falha', '100% offline', 'Erro SD'] and heads[-6:] == [str(c) for c in range(21, 27)], 'cabeçalhos curtos (Funcionais … Erro SD, 21 … 26)')
-    ok('Veículos com falha por câmera' in pg.inner_text('#v-tabela .tr-grupo'), 'grupo "Veículos com falha por câmera"')
+    ok(heads[:4] == ['Funcionais', '1+ câm. c/ falha', '100% offline', 'Erro SD'] and heads[-6:] == [str(c) for c in range(21, 27)], 'cabeçalhos curtos (Funcionais … Erro SD, 21 … 26)')
+    grp = pg.inner_text('#v-tabela .tr-grupo').upper()
+    ok('SITUAÇÃO ATUAL' in grp and 'FALHA POR POSIÇÃO' in grp and 'MANUTENÇÃO' not in grp, 'grupos Situação atual e Falha por posição')
+    ok(pg.is_checked('#v-sit') and pg.is_checked('#v-pos') and not pg.is_checked('#v-manut'), 'padrão: Situação atual e Falha por posição ligados, Manutenção desligada')
     ok(all(pg.get_attribute(f'#v-tabela th[data-o="{k}"]', 'data-tip') for k in ['vf', 'vp', 'vo', 'vs']), 'definições nas dicas dos cabeçalhos')
     garagens = [t.inner_text() for t in pg.query_selector_all('#v-tabela tbody .lnk-g')]
     ok('Não informado' not in garagens and sum(1 for g in garagens if 'Sudeste' in g) == 1, f'{len(garagens)} empresas, Via Sudeste unificada')
@@ -125,18 +137,26 @@ with sync_playwright() as p:
     ok(t['vt'] == nveic, f'Total de veículos = {nveic}')
     ok(t['vf'] + t['vp'] + t['vo'] + t['vs'] + t['vn'] == t['vt'], 'Funcionais + 1+ câm. c/ falha + 100% offline + Erro SD (+ sem conexão) = Veículos')
     ok(t['vp'] + t['vo'] + t['vs'] == cards['veic'], 'card Veículos com falha = 1+ câm. c/ falha + 100% offline + Erro SD')
-    est = pg.evaluate("""() => { const tb = document.getElementById('v-tabela'), td = tb.querySelector('tbody td.n'), tr = tb.querySelector('tbody tr:nth-child(2) td');
-        return {oh: getComputedStyle(tb).overflowY, sh: tb.scrollHeight, ch: tb.clientHeight, al: getComputedStyle(td).textAlign, num: getComputedStyle(td).fontVariantNumeric, pad: parseFloat(getComputedStyle(td).paddingLeft), zebra: getComputedStyle(tr).backgroundColor,
-                 sep: getComputedStyle(tb.querySelector('tbody td.g-ini')).borderLeftWidth}; }""")
-    ok(est['sh'] <= est['ch'] + 1, f'tabela inteira sem rolagem interna ({est["sh"]} ≤ {est["ch"]})')
-    ok(est['al'] == 'right' and 'tabular-nums' in est['num'] and est['pad'] >= 12 and est['sep'] == '1px' and est['zebra'] != 'rgb(255, 255, 255)', f'números à direita tabulares, espaçamento {est["pad"]}px, separadores de grupo e zebra')
+    est = pg.evaluate("""() => { const tb = document.getElementById('v-tabela'), td = tb.querySelector('tbody td.n'), tr = tb.querySelector('tbody tr');
+        const bg = (sel) => getComputedStyle(tb.querySelector(sel)).backgroundColor;
+        return {sh: tb.scrollHeight, ch: tb.clientHeight, al: getComputedStyle(td).textAlign, num: getComputedStyle(td).fontVariantNumeric, fs: parseFloat(getComputedStyle(td).fontSize), row: tr.getBoundingClientRect().height,
+                 s: bg('tbody td.g-s'), c: bg('tbody td.g-c'), z: getComputedStyle(tb.querySelector('tbody tr:nth-child(2) td.g-s')).backgroundColor, sep: getComputedStyle(tb.querySelector('tbody td.g-ini.g-c')).borderLeftWidth}; }""")
+    print('      estilo:', est)
+    ok(est['sh'] <= est['ch'] + 1, 'tabela sem rolagem interna')
+    ok(est['al'] == 'right' and 'tabular-nums' in est['num'] and 11 <= est['fs'] <= 12.5 and 21 <= est['row'] <= 24.5, f'linhas compactas ({est["row"]}px, fonte {est["fs"]}px), números à direita')
+    ok(est['s'] != est['c'] and est['s'] == est['z'] and est['sep'] == '1px', 'blocos com tom de fundo próprio, separadores finos, sem zebra')
     pg.click('#v-tabela th[data-o="vt"]'); pg.wait_for_timeout(150)
     vals = [num(x.inner_text()) for x in pg.query_selector_all('#v-tabela tbody tr td:nth-child(2)')]
     ok(vals == sorted(vals, reverse=True), 'ordenar por Veículos')
     pg.click('#v-tabela th.th-emp'); pg.wait_for_timeout(150)
     for w, h in VIEWPORTS:
         pg.set_viewport_size({'width': w, 'height': h}); pg.wait_for_timeout(350)
-        sem_rolagem_horizontal(pg, f'Visão geral {w}x{h}')
+        if w >= 1366:
+            sem_rolagem(pg, f'Visão geral {w}x{h} (padrão)')
+            fim = pg.evaluate("() => [document.querySelector('#v-tabela tfoot').getBoundingClientRect().bottom, innerHeight, document.querySelectorAll('#v-tabela tbody tr').length]")
+            ok(fim[0] <= fim[1], f'{w}x{h}: as {fim[2]} empresas e o Total cabem na tela (Total termina em {fim[0]:.0f} de {fim[1]})')
+        else:
+            sem_rolagem_horizontal(pg, f'Visão geral {w}x{h}')
         pg.screenshot(path=str(out / f'{pref}_vp_{w}x{h}_visao.png'), full_page=True)
     pg.set_viewport_size({'width': 1920, 'height': 1080}); pg.wait_for_timeout(300)
     pg.screenshot(path=str(out / f'{pref}_1_visao_geral.png'), full_page=True)
@@ -150,17 +170,26 @@ with sync_playwright() as p:
     ok((m['ma'], m['mr'], m['mp'], m['ms']) == (595, 64, 282, 71), 'totais de manutenção 595 / 64 / 282 / 71')
     ok(0 < m['mi'] <= m['ma'] - m['mp'], f'Improcedentes coerente ({m["mi"]})')
     ok(all(pg.get_attribute(f'#v-tabela th[data-o="{k}"]', 'data-tip') for k in ['ma', 'mr', 'mp', 'ms', 'mi']), 'dicas nos cabeçalhos de manutenção')
-    sem_rolagem_horizontal(pg, 'Visão geral com manutenção 1920x1080')
-    pg.screenshot(path=str(out / f'{pref}_2_visao_manutencao.png'), full_page=True)
+    ok('MANUTENÇÃO' in pg.inner_text('#v-tabela .tr-grupo').upper(), 'grupo Manutenção')
+    sem_rolagem(pg, 'Visão geral com os 3 blocos 1920x1080')
+    pg.screenshot(path=str(out / f'{pref}_2_visao_3_blocos.png'), full_page=True)
     pg.set_viewport_size({'width': 1366, 'height': 768}); pg.wait_for_timeout(300)
-    sem_rolagem_horizontal(pg, 'Visão geral com manutenção 1366x768')
+    lg = pg.evaluate("() => { const t = document.getElementById('v-tabela'); return [t.scrollWidth, t.clientWidth]; }")
+    sem_rolagem(pg, 'Visão geral com os 3 blocos 1366x768')
+    ok(lg[0] <= lg[1], f'3 blocos em 1366x768 sem rolagem horizontal na tabela ({lg[0]} de {lg[1]})')
+    pg.screenshot(path=str(out / f'{pref}_2b_visao_3_blocos_1366.png'))
+    pg.uncheck('#v-sit', force=True); pg.uncheck('#v-pos', force=True); pg.wait_for_timeout(200)
+    ok(cabecalhos(pg) == ['Atendidos', 'Reincidências', 'Procedentes', 'Solucionados', 'Improcedentes'], 'desligar Situação atual e Falha por posição remove os blocos')
+    pg.check('#v-sit', force=True); pg.check('#v-pos', force=True); pg.wait_for_timeout(200)
     pg.set_viewport_size({'width': 1920, 'height': 1080}); pg.wait_for_timeout(300)
     pg.uncheck('#v-manut', force=True); pg.wait_for_timeout(200)
     ok(pg.query_selector('#v-tabela th[data-o="ma"]') is None, 'desligar Manutenção remove as colunas')
 
     # Veículo | Câmera
     pg.click('#v-modo button[data-m="cam"]'); pg.wait_for_timeout(250)
-    ok(num(total(pg, 'cf')) == cards['on'] and num(total(pg, 'cs')) == cards['fa'] and num(total(pg, 'co')) == cards['off'], 'modo Câmera: totais = cards de câmeras')
+    ok(cabecalhos(pg)[:4] == ['Funcionais', '1+ câm. c/ falha', '100% offline', 'Erro SD'], 'modo Câmera com os mesmos nomes de coluna')
+    ok(num(total(pg, 'cf')) == cards['on'] and num(total(pg, 'cs')) == cards['fa'] and num(total(pg, 'cp')) + num(total(pg, 'co')) == cards['off'] and num(total(pg, 'ct')) == cards['on'] + cards['fa'] + cards['off'],
+       'modo Câmera: Funcionais, Erro SD e 1+ câm. + 100% offline batem com os cards')
     pg.click('#v-modo button[data-m="veic"]'); pg.wait_for_timeout(250)
 
     # exportação Excel
@@ -205,6 +234,20 @@ with sync_playwright() as p:
     ok(num(total(pg, 'vt')) == cards['veic'], 'card Veículos com falha filtra a tabela')
     pg.click('.kpi[data-card="veic"]'); pg.wait_for_timeout(300)
 
+    # modal Falha por posição
+    btn = pg.query_selector('#v-tabela tbody tr[data-g="Via Sudeste"] .num-pos[data-cam="21"]')
+    n21 = num(btn.inner_text()); btn.click(); pg.wait_for_selector('#modal .gt-pos'); pg.wait_for_timeout(300)
+    st = [x.inner_text() for x in pg.query_selector_all('#modal .gt-pos tbody td:nth-child(2)')]
+    ok(len(st) == n21 and set(st) <= {'Offline', 'Erro SD'}, f'clique no nº da câmera 21 da Via Sudeste: {n21} veículos, só com falha na câmera 21')
+    ok([t.inner_text() for t in pg.query_selector_all('#modal .gt-pos thead th')] == ['Prefixo', 'Status', 'Dias c/ problema', 'Último registro', 'Última manutenção'], 'colunas do modal por posição')
+    pg.screenshot(path=str(out / f'{pref}_3c_modal_posicao.png'))
+    with pg.expect_download() as dl:
+        pg.click('#pos-xlsx')
+    arq = out.parent / f'{pref}_pos.xlsx'; dl.value.save_as(str(arq))
+    ok(sum(1 for r in openpyxl.load_workbook(arq).active.iter_rows(values_only=True) if isinstance(r[0], int)) == n21, f'Exportar Excel do modal ({dl.value.suggested_filename})')
+    arq.unlink()
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(200)
+
     # modal da garagem: gráfico (clique no nome)
     nv = num(pg.query_selector('#v-tabela tbody tr[data-g="Via Sudeste"] td:nth-child(2)').inner_text())
     pg.click('#v-tabela .lnk-g[data-g="Via Sudeste"]'); pg.wait_for_selector('#g-graf svg path.ln'); pg.wait_for_timeout(300)
@@ -243,6 +286,7 @@ with sync_playwright() as p:
     pg.click('#nav-matriz'); pg.wait_for_selector('.st'); pg.wait_for_timeout(300)
     ok('#matriz' in pg.url and pg.query_selector('#topo-filtros #f-mes') and pg.query_selector('#topo-filtros #btn-os'), 'Matriz: filtros e OS na linha do título')
     ok(pg.evaluate("getComputedStyle(document.getElementById('upd')).position") == 'fixed', 'Matriz: última atualização fixa')
+    ok(pg.evaluate("document.getElementById('upd').getBoundingClientRect().top >= document.querySelector('.app').getBoundingClientRect().bottom - 0.5"), 'Matriz: última atualização fora do conteúdo')
     meses = sorted({d[:7] for d in meta['dias']})
     ok(pg.input_value('#f-mes') == meses[-1], f'Mês padrão = {meses[-1]}')
     chips = pg.inner_text('#m-status')

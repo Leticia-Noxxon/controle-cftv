@@ -19,7 +19,7 @@ export const faixa = (r) => (r.s.cat === 'off' || r.dias >= 7 ? 'Alta' : r.dias 
 const PESO_FAIXA = { Alta: 0, Média: 1, Baixa: 2 };
 const JANELA = 7;
 let aux = null;
-const carregarAux = () => { if (!aux) aux = fetch(`${import.meta.env.BASE_URL}os.json`).then((r) => (r.ok ? r.json() : { v: {} })).catch(() => ({ v: {} })); return aux; };
+export const carregarAux = () => { if (!aux) aux = fetch(`${import.meta.env.BASE_URL}os.json`).then((r) => (r.ok ? r.json() : { v: {} })).catch(() => ({ v: {} })); return aux; };
 
 const juntar = (xs) => (xs.length === 1 ? xs[0] : `${xs.slice(0, -1).join(', ')} e ${xs[xs.length - 1]}`);
 const dm = (i) => dmy(D.dias[i]).slice(0, 5);
@@ -146,22 +146,19 @@ export async function gerarOS(lista, sel) {
   const COLS = [['Prioridade', 11], ['Garagem/Empresa', 24], ['Prefixo', 10], ...cams.map((c) => [`Câm ${c}`, 12]), ['Observação técnica', 60], ['Última manutenção', 70]];
   const N = COLS.length;
   ws.columns = COLS.map(([, w]) => ({ width: w }));
+  // Calibri 10, sem bordas; tudo centralizado, exceto Observação técnica e Última manutenção (à esquerda, com quebra)
+  const fonte = { name: 'Calibri', size: 10 };
+  const texto = (i) => i >= N - 2;
+  const alinhar = (i) => (texto(i) ? { vertical: 'middle', horizontal: 'left', wrapText: true } : { vertical: 'middle', horizontal: 'center', wrapText: true });
   const cab = ws.getRow(1);
-  COLS.forEach(([rot], i) => { const c = cab.getCell(i + 1); c.value = rot; c.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 }; c.fill = fill(COR_XL.verde); c.alignment = { vertical: 'middle', horizontal: i < 3 || i >= N - 2 ? 'left' : 'center', wrapText: true }; });
-  cab.height = 26;
-  const borda = { style: 'thin', color: { argb: 'FFD9D9D6' } };
+  COLS.forEach(([rot], i) => { const c = cab.getCell(i + 1); c.value = rot; c.font = { ...fonte, bold: true }; c.fill = fill('FFEDF1EE'); c.alignment = alinhar(i); });
+  cab.height = 22;
   lista.forEach((r, k) => {
     const lin = ws.getRow(2 + k);
     const vals = [faixa(r), r.v.garagem, r.v.p, ...cams.map((c) => (r.cams[c] ? r.cams[c].st : '—')), r.obs, r.man];
-    vals.forEach((x, i) => {
-      const c = lin.getCell(i + 1);
-      c.value = x;
-      c.border = { top: borda, left: borda, bottom: borda, right: borda };
-      c.alignment = { vertical: 'middle', horizontal: i === 2 || (i > 2 && i < N - 2) ? 'center' : 'left', wrapText: true };
-      c.font = { size: 10, bold: i === 0 || i === 2 };
-    });
+    vals.forEach((x, i) => { const c = lin.getCell(i + 1); c.value = x; c.font = fonte; c.alignment = alinhar(i); });
     const linhasTxt = Math.max(Math.ceil(String(r.obs).length / 62), Math.ceil(String(r.man).length / 74), 1);
-    lin.height = Math.max(20, 14 * linhasTxt + 6);
+    lin.height = Math.max(16, 13 * linhasTxt + 4);
   });
   const fim = 1 + lista.length;
   ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: fim, column: N } };

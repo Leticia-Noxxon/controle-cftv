@@ -58,7 +58,7 @@ https://leticia-noxxon.github.io/controle-cftv/v2/ usa o estilo do "Property Man
 
 - **Layout:**
   - Título "Controle de CFTV" com os filtros na mesma linha, à direita (Empresa, Câmera, Prefixo, Período / Mês).
-  - Sem subtítulos. "Última atualização" é uma pílula pequena fixa no canto inferior direito, nas duas abas.
+  - Sem subtítulos. "Última atualização" é um texto discreto no canto inferior direito, com espaço reservado para não cobrir o conteúdo. Na Matriz fica fixo; na Visão geral fica no fim da página.
   - A Matriz ocupa a tela fixa (100dvh). A Visão geral pode rolar verticalmente para a tabela aparecer inteira, sem rolagem interna.
   - A barra lateral tem duas abas, com dica ao passar o mouse, focar ou tocar e segurar. No celular ela vai para baixo.
 - **Período:** calendário próprio em popover, em pt-BR.
@@ -87,16 +87,18 @@ https://leticia-noxxon.github.io/controle-cftv/v2/ usa o estilo do "Property Man
   - **Sem conexão:** nenhum registro no período (a coluna só aparece quando houver algum).
   - O card "Veículos com falha" é a soma de 1+ câm. c/ falha, 100% offline e Erro SD.
 - **Aba Visão geral:**
-  - **Cards:** sem palavra de unidade. Cada card mostra a variação absoluta em relação ao dia anterior, com seta.
-    - A base é o fechamento do último dia do período (ou dos dados) comparado com o fechamento do dia anterior (último registro de cada câmera até aquele dia); fica na dica.
-    - Em Câmeras funcionais, subir é bom (verde) e descer é ruim (vermelho).
-    - Nos outros três cards, subir é ruim (vermelho) e descer é bom (verde).
+  - **Cards:** título à esquerda e número centralizado.
+    - A variação em relação ao dia anterior aparece em cinza no canto superior direito ("↑ 126", "↓ 45").
+    - A base da variação fica na dica: fechamento do último dia do período (ou dos dados) contra o do dia anterior.
     - Clicar num card filtra a tabela.
-  - **Tabela "Conexão por Empresa":** largura total e sem rolagem interna.
-    - Cabeçalhos curtos, com a definição completa na dica: Veículos, Funcionais, 1+ câm. c/ falha, 100% offline, Erro SD e, no grupo "Veículos com falha por câmera", 21 a 26.
-    - Números alinhados à direita, separadores entre os grupos e linhas zebradas.
-    - Alterna Veículo | Câmera; colunas ordenáveis, linha Total e exportação para Excel.
-    - A chave **Manutenção** acrescenta Atendidos, Reincidências, Procedentes, Solucionados e Improcedentes.
+  - **Tabela "Conexão por Empresa":** compacta; cabe inteira na tela em 1920×1080 e 1366×768.
+    - A coluna Empresa e o total (Veículos ou Câmeras) ficam sempre visíveis.
+    - Três blocos com chave própria, cada um com um tom de fundo suave:
+      - **Situação atual** (branco, ligado por padrão): Funcionais, 1+ câm. c/ falha, 100% offline, Erro SD. Os nomes são os mesmos no modo Câmera; nele, 1+ câm. c/ falha conta as câmeras offline de veículos parcialmente offline, e 100% offline as câmeras de veículos todo offline.
+      - **Falha por posição** (cinza quente, ligado por padrão): 21 a 26.
+      - **Manutenção** (azul claro, desligado por padrão): Atendidos, Reincidências, Procedentes, Solucionados, Improcedentes.
+    - Definições completas nas dicas dos cabeçalhos; ordenação, linha Total e exportação para Excel da visão atual.
+    - **Clique num número de Falha por posição:** abre um modal só com os veículos da empresa (ou de todas, na linha Total) com aquela câmera em falha. Mostra prefixo, status, dias com problema, último registro e última manutenção resumida, com botão Exportar Excel.
   - **Clique no nome da empresa:** abre um modal com o gráfico de evolução diária da empresa.
     - Séries: Funcional `#2F9E62`, 1+ câm. com problema `#E08A00`, Erro de SD `#7C5CD6` e 100% Offline `#D64545`.
     - Mostra área, grade, eixos, legenda, dica com os valores do dia e alterna Veículo | Câmera.
@@ -112,7 +114,7 @@ https://leticia-noxxon.github.io/controle-cftv/v2/ usa o estilo do "Property Man
   - **Planilha:** uma aba só, e a tabela começa na linha 1.
   - **Colunas:** Prioridade, Garagem/Empresa, Prefixo, Câm 21 a Câm 26, Observação técnica e Última manutenção. Com uma câmera escolhida, só a coluna, a observação e a última manutenção dessa câmera.
   - **Status das câmeras** em texto, sem cor: Funcional, Erro SD, Offline, Variação (funcional agora, com falha nos últimos 7 dias) e Sem conexão (sem registro nas 24 h antes da atualização).
-  - **Formato:** cabeçalho congelado, autofiltro, larguras ajustadas e A4 paisagem ajustado à largura.
+  - **Formato:** Calibri 10, sem bordas, tudo centralizado exceto Observação técnica e Última manutenção (à esquerda, com quebra); cabeçalho em negrito com fundo claro, congelado, autofiltro, larguras ajustadas e A4 paisagem ajustado à largura.
   - **Última manutenção:** "data – Problema: … Ação: …", reescrita sem mudar o sentido:
     - corrige erros de digitação comuns (camera → câmera, swicth → switch, nescessário → necessário…);
     - corrige a caixa alta;
