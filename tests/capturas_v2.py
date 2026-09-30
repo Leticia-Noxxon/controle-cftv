@@ -3,6 +3,8 @@ Uso: python tests/capturas_v2.py URL_V2 PREFIXO   (ex.: http://localhost:4174/v2
 import sys
 from pathlib import Path
 
+import re
+
 import openpyxl
 from playwright.sync_api import sync_playwright
 
@@ -102,6 +104,14 @@ with sync_playwright() as p:
         return {tt: t.top, tb: t.bottom, ft: f.top, fb: f.bottom, fr: f.right, fl: f.left, tr: t.right, W: document.querySelector('.topo').getBoundingClientRect().right}; }""")
     ok(topo['fl'] > topo['tr'] and topo['ft'] < topo['tb'] and abs(topo['W'] - topo['fr']) < 2, 'filtros na mesma linha do título, alinhados à direita')
     ok(pg.query_selector('.subtitulo') is None, 'sem subtítulo')
+    pg.hover('#nav-matriz'); pg.wait_for_timeout(250)
+    tt = pg.evaluate("(() => { const s = getComputedStyle(document.querySelector('#nav-matriz'), '::after'); return [s.whiteSpace, parseFloat(s.height), parseFloat(s.width), s.opacity]; })()")
+    pg.hover('#nav-visao'); pg.wait_for_timeout(250)
+    tv = pg.evaluate("(() => { const s = getComputedStyle(document.querySelector('#nav-visao'), '::after'); return [s.whiteSpace, parseFloat(s.height), parseFloat(s.width), s.opacity]; })()")
+    ok(all(x[0] == 'nowrap' and x[1] < 30 and x[3] == '1' for x in (tt, tv)) and tv[2] > 60, f'dicas das abas em uma linha, na horizontal (Visão geral {tv[2]:.0f}x{tv[1]:.0f}px, Matriz {tt[2]:.0f}x{tt[1]:.0f}px)')
+    b_ = pg.query_selector('#nav-visao').bounding_box()
+    pg.screenshot(path=str(out / f'{pref}_1d_dica_aba.png'), clip={'x': 0, 'y': 0, 'width': 420, 'height': b_['y'] + 150})
+    pg.mouse.move(900, 600)
     ok(pg.inner_text('label[for="f-empresa"]') == 'Empresa', 'rótulo do filtro = Empresa')
     upd = pg.evaluate("() => { const e = document.getElementById('upd'), r = e.getBoundingClientRect(); return [getComputedStyle(e).position, innerWidth - r.right, innerHeight - r.bottom, e.textContent]; }")
     ok(upd[0] in ('fixed', 'static') and upd[1] < 40 and upd[2] < 40 and 'Última atualização' in upd[3], f'Última atualização fixa no canto inferior direito ({upd[3]})')
@@ -112,22 +122,24 @@ with sync_playwright() as p:
     cards = {c.get_attribute('data-card'): num(c.query_selector('.val').inner_text()) for c in pg.query_selector_all('.kpi')}
     print('      cards:', cards)
     ok(len(cards) == 4 and pg.query_selector('.kpi .un') is None, '4 cards sem palavra de unidade')
-    import re
-    deltas = pg.evaluate("""() => [...document.querySelectorAll('.kpi')].map((c) => { const d = c.querySelector('.delta'), r = c.getBoundingClientRect(), v = c.querySelector('.val').getBoundingClientRect(), dr = d.getBoundingClientRect();
-        return [c.dataset.card, d.textContent, d.title, getComputedStyle(d).color, (v.left + v.right) / 2 - (r.left + r.right) / 2, r.right - dr.right, dr.top - r.top]; })""")
-    print('      variações:', [d[:2] for d in deltas])
+    deltas = pg.evaluate("""() => [...document.querySelectorAll('.kpi')].map((c) => { const d = c.querySelector('.delta'), r = c.getBoundingClientRect(), v = c.querySelector('.val').getBoundingClientRect(), dr = d.getBoundingClientRect(), t = c.querySelector('.rot-t').getBoundingClientRect();
+        return [c.dataset.card, d.textContent, d.title, getComputedStyle(d).color, v.left - t.left, r.right - dr.right, dr.top - r.top]; })""")
+    print('      variações:', [d[:2] + [d[3]] for d in deltas])
     ok(all(re.fullmatch(r'[↑↓=] [\d.]+', d[1]) and 'anterior' in d[2].lower() for d in deltas), 'variação "↑ 126" sem data, base na dica')
-    ok(len({d[3] for d in deltas}) == 1 and all(d[5] < 30 and d[6] < 30 for d in deltas), f'variação em cinza neutro no canto superior direito ({deltas[0][3]})')
-    ok(all(abs(d[4]) < 45 for d in deltas), f'número centralizado no card (desvios {[round(d[4]) for d in deltas]})')
+    VERDE, VERM = 'rgb(47, 158, 98)', 'rgb(214, 69, 69)'
+    sem = all(d[3] == ((VERDE if (d[1][0] == '↑') == (d[0] == 'on') else VERM) if d[1][0] in '↑↓' else d[3]) for d in deltas)
+    ok(sem and all(d[5] < 30 and d[6] < 30 for d in deltas), 'variação no canto superior direito com cor semântica (funcionais ↑ verde; demais ↑ vermelho)')
+    ok(all(abs(d[4]) < 3 for d in deltas), f'número alinhado à esquerda com o título (desvios {[round(d[4], 1) for d in deltas]})')
     pg.locator('#v-cards').screenshot(path=str(out / f'{pref}_1b_cards.png'))
     pg.locator('#v-cards .kpi').first.screenshot(path=str(out / f'{pref}_1c_card_zoom.png'), scale='device')
     ok(pg.query_selector('#v-graf') is None and pg.query_selector('.vg-graf') is None, 'gráfico Evolução diária removido da página')
-    ok(pg.inner_text('.vg-bar h2') == 'Conexão por Empresa' and pg.query_selector('.vg-bar .sub') is None, 'título "Conexão por Empresa", sem legenda de contagem')
+    ok(pg.eval_on_selector('.vg-bar h2', 'e => e.getBoundingClientRect().width') <= 1 and pg.query_selector('.vg-bar .sub') is None, 'sem título visível na tabela')
+    ok(pg.query_selector('.logo') is None, 'sem logo na barra lateral')
     heads = cabecalhos(pg)
     print('      colunas:', heads)
     ok(heads[:4] == ['Funcionais', '1+ câm. c/ falha', '100% offline', 'Erro SD'] and heads[-6:] == [str(c) for c in range(21, 27)], 'cabeçalhos curtos (Funcionais … Erro SD, 21 … 26)')
     grp = pg.inner_text('#v-tabela .tr-grupo').upper()
-    ok('SITUAÇÃO ATUAL' in grp and 'FALHA POR POSIÇÃO' in grp and 'MANUTENÇÃO' not in grp, 'grupos Situação atual e Falha por posição')
+    ok('SITUAÇÃO' not in grp and 'FALHA POR POSIÇÃO' in grp and 'MANUTENÇÃO' not in grp, 'sem rótulo "Situação atual"; grupo Falha por posição')
     ok(pg.is_checked('#v-sit') and pg.is_checked('#v-pos') and not pg.is_checked('#v-manut'), 'padrão: Situação atual e Falha por posição ligados, Manutenção desligada')
     ok(all(pg.get_attribute(f'#v-tabela th[data-o="{k}"]', 'data-tip') for k in ['vf', 'vp', 'vo', 'vs']), 'definições nas dicas dos cabeçalhos')
     garagens = [t.inner_text() for t in pg.query_selector_all('#v-tabela tbody .lnk-g')]
@@ -139,18 +151,20 @@ with sync_playwright() as p:
     ok(t['vp'] + t['vo'] + t['vs'] == cards['veic'], 'card Veículos com falha = 1+ câm. c/ falha + 100% offline + Erro SD')
     est = pg.evaluate("""() => { const tb = document.getElementById('v-tabela'), td = tb.querySelector('tbody td.n'), tr = tb.querySelector('tbody tr');
         const bg = (sel) => getComputedStyle(tb.querySelector(sel)).backgroundColor;
-        return {sh: tb.scrollHeight, ch: tb.clientHeight, al: getComputedStyle(td).textAlign, num: getComputedStyle(td).fontVariantNumeric, fs: parseFloat(getComputedStyle(td).fontSize), row: tr.getBoundingClientRect().height,
+        return {cor: getComputedStyle(td).color, peso: [getComputedStyle(tb.querySelector('th.th-tot')).fontWeight, getComputedStyle(tb.querySelector('tbody td.g-t')).fontWeight, getComputedStyle(tb.querySelector('tfoot td.g-t')).fontWeight],
+                 linhaV: getComputedStyle(tb.querySelector('tbody td.g-s:not(.g-ini)')).borderLeftWidth, sh: tb.scrollHeight, ch: tb.clientHeight, al: getComputedStyle(td).textAlign, num: getComputedStyle(td).fontVariantNumeric, fs: parseFloat(getComputedStyle(td).fontSize), row: tr.getBoundingClientRect().height,
                  s: bg('tbody td.g-s'), c: bg('tbody td.g-c'), z: getComputedStyle(tb.querySelector('tbody tr:nth-child(2) td.g-s')).backgroundColor, sep: getComputedStyle(tb.querySelector('tbody td.g-ini.g-c')).borderLeftWidth}; }""")
     print('      estilo:', est)
     ok(est['sh'] <= est['ch'] + 1, 'tabela sem rolagem interna')
-    ok(est['al'] == 'right' and 'tabular-nums' in est['num'] and 11 <= est['fs'] <= 12.5 and 21 <= est['row'] <= 24.5, f'linhas compactas ({est["row"]}px, fonte {est["fs"]}px), números à direita')
+    ok(est['cor'] == 'rgb(71, 85, 105)' and est['peso'] == ['400', '400', '400'] and est['linhaV'] == '0px', 'números em cinza #475569, sem negrito em Veículos/Total, sem linhas verticais internas')
+    ok(est['al'] == 'center' and 'tabular-nums' in est['num'] and 11 <= est['fs'] <= 12.5 and 21 <= est['row'] <= 24.5, f'linhas compactas ({est["row"]}px, fonte {est["fs"]}px), números centralizados')
     ok(est['s'] != est['c'] and est['s'] == est['z'] and est['sep'] == '1px', 'blocos com tom de fundo próprio, separadores finos, sem zebra')
     pg.click('#v-tabela th[data-o="vt"]'); pg.wait_for_timeout(150)
     vals = [num(x.inner_text()) for x in pg.query_selector_all('#v-tabela tbody tr td:nth-child(2)')]
     ok(vals == sorted(vals, reverse=True), 'ordenar por Veículos')
     pg.click('#v-tabela th.th-emp'); pg.wait_for_timeout(150)
     for w, h in VIEWPORTS:
-        pg.set_viewport_size({'width': w, 'height': h}); pg.wait_for_timeout(350)
+        pg.set_viewport_size({'width': w, 'height': h}); pg.mouse.move(2, h - 2); pg.wait_for_timeout(350)
         if w >= 1366:
             sem_rolagem(pg, f'Visão geral {w}x{h} (padrão)')
             fim = pg.evaluate("() => [document.querySelector('#v-tabela tfoot').getBoundingClientRect().bottom, innerHeight, document.querySelectorAll('#v-tabela tbody tr').length]")

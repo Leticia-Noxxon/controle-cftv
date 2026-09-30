@@ -38,7 +38,7 @@ const COLS_MANUT = [
 
 export function paginaVisao(app) {
   app.innerHTML = `<div class="pagina pag-visao"><section class="cards" id="v-cards"></section>
-    <section class="card vg-tab"><div class="vg-bar"><h2>Conexão por Empresa</h2>
+    <section class="card vg-tab"><div class="vg-bar"><h2 class="sr">Conexão por Empresa</h2>
       <div class="acoes"><div class="seg" id="v-modo" role="group" aria-label="Contagem por"><button data-m="veic">Veículo</button><button data-m="cam">Câmera</button></div>
       <div class="blocos" role="group" aria-label="Blocos de colunas">${[['v-sit', 'sit', 'Situação atual', 'Funcionais, 1+ câm. c/ falha, 100% offline e Erro SD'], ['v-pos', 'pos', 'Falha por posição', 'Falhas em cada posição de câmera (21 a 26)'], ['v-manut', 'manut', 'Manutenção', 'Atendidos, Reincidências, Procedentes, Solucionados e Improcedentes']]
         .map(([id, k, rot, tip]) => `<label class="switch sw-${k}" title="Mostrar/ocultar: ${tip}"><input type="checkbox" id="${id}" data-b="${k}" ${S1[k] ? 'checked' : ''}/><span class="trilho" aria-hidden="true"></span><span>${rot}</span></label>`).join('')}</div>
@@ -134,18 +134,19 @@ function cards() {
   const { dias } = ultimo;
   const dUlt = dias.length ? dmy(D.dias[dias[dias.length - 1]]) : '', dAnt = dias.length > 1 ? dmy(D.dias[dias[dias.length - 2]]) : '';
   const base = b ? `Variação em relação ao dia anterior: último registro de cada câmera até ${dAnt} (fechamento do dia anterior) comparado com até ${dUlt} (último dia do ${F.de || F.ate ? 'período escolhido' : 'período dos dados'}).` : 'Sem dia anterior no período para comparar.';
-  // variação neutra (cinza) no canto superior direito; a base fica na dica
-  const delta = (k) => {
+  // variação no canto superior direito, com cor semântica: verde = melhora, vermelho = piora (a base fica na dica)
+  const delta = (k, bomSobe) => {
     if (!b) return '';
     const d = a[k] - b[k];
-    return `<span class="delta" title="${base}" aria-label="${d ? `${d > 0 ? 'aumento' : 'queda'} de ${fmtN(Math.abs(d))}` : 'sem variação'} em relação ao dia anterior">${d > 0 ? '↑' : d < 0 ? '↓' : '='} ${fmtN(Math.abs(d))}</span>`;
+    const cls = !d ? 'neutro' : (d > 0) === bomSobe ? 'bom' : 'ruim';
+    return `<span class="delta ${cls}" title="${base}" aria-label="${d ? `${d > 0 ? 'aumento' : 'queda'} de ${fmtN(Math.abs(d))}` : 'sem variação'} em relação ao dia anterior">${d > 0 ? '↑' : d < 0 ? '↓' : '='} ${fmtN(Math.abs(d))}</span>`;
   };
   const pc = (n, t) => (t ? `<span class="pc" title="Participação no total">${fmtP((100 * n) / t)}</span>` : '');
   const card = (ic, cls, rot, val, extra, k, dl) => `<div class="card kpi clic${S1.card === k ? ' ativo' : ''}" data-card="${k}" role="button" tabindex="0" aria-pressed="${S1.card === k}" title="${S1.card === k ? 'Clique para limpar' : 'Filtrar a tabela por este card'}"><div class="rot"><span class="ic ${cls}">${ic}</span><span class="rot-t">${rot}</span>${dl}</div><div class="val-l"><span class="val">${fmtN(val)}</span>${extra}</div></div>`;
-  document.getElementById('v-cards').innerHTML = card(ICONE.ok, 'c-on', 'Câmeras funcionais', a.on, pc(a.on, a.tot), 'on', delta('on'))
-    + card(ICONE.sd, 'c-sd', 'Câmeras com erro de SD card', a.fa, pc(a.fa, a.tot), 'fa', delta('fa'))
-    + card(ICONE.off, 'c-off', 'Câmeras 100% offline', a.off, pc(a.off, a.tot), 'off', delta('off'))
-    + card(ICONE.alerta, 'c-veic', 'Veículos com falha', a.veic, pc(a.veic, a.n), 'veic', delta('veic'));
+  document.getElementById('v-cards').innerHTML = card(ICONE.ok, 'c-on', 'Câmeras funcionais', a.on, pc(a.on, a.tot), 'on', delta('on', true))
+    + card(ICONE.sd, 'c-sd', 'Câmeras com erro de SD card', a.fa, pc(a.fa, a.tot), 'fa', delta('fa', false))
+    + card(ICONE.off, 'c-off', 'Câmeras 100% offline', a.off, pc(a.off, a.tot), 'off', delta('off', false))
+    + card(ICONE.alerta, 'c-veic', 'Veículos com falha', a.veic, pc(a.veic, a.n), 'veic', delta('veic', false));
   document.querySelectorAll('#v-cards .clic').forEach((c) => {
     const alternar = () => { S1.card = S1.card === c.dataset.card ? '' : c.dataset.card; atualizar(); };
     c.addEventListener('click', alternar);
@@ -173,7 +174,7 @@ function tabela() {
   const veic = S1.modo === 'veic';
   const grupos = `<tr class="tr-grupo"><th rowspan="2" class="ord th-emp" data-o="g" aria-sort="${aria('g')}">Empresa${seta('g')}</th>
     <th rowspan="2" class="n ord g-t th-tot" data-o="${tot.k}" data-tip="${esc(tot.tip)}" aria-sort="${aria(tot.k)}">${tot.rot}${seta(tot.k)}</th>
-    ${n('s') ? `<th colspan="${n('s')}" class="gh g-ini g-s">Situação atual</th>` : ''}
+    ${n('s') ? `<th colspan="${n('s')}" class="gh g-ini g-s" aria-label="Situação atual"></th>` : ''}
     ${n('c') ? `<th colspan="${n('c')}" class="gh g-ini g-c" data-tip="${veic ? 'Nº de veículos com erro de SD card ou offline em cada posição de câmera (último registro). Clique num número para ver os veículos.' : 'Nº de câmeras com erro de SD card ou offline em cada posição (último registro). Clique num número para ver os veículos.'}">Falha por posição</th>` : ''}
     ${n('m') ? `<th colspan="${n('m')}" class="gh g-ini g-m">Manutenção</th>` : ''}</tr>`;
   const th = (c) => `<th class="n ord${cls(c)}" data-o="${c.k}" data-tip="${esc(c.tip)}" aria-sort="${aria(c.k)}">${c.rot}${seta(c.k)}</th>`;

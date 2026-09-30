@@ -87,16 +87,16 @@ https://leticia-noxxon.github.io/controle-cftv/v2/ usa o estilo do "Property Man
   - **Sem conexão:** nenhum registro no período (a coluna só aparece quando houver algum).
   - O card "Veículos com falha" é a soma de 1+ câm. c/ falha, 100% offline e Erro SD.
 - **Aba Visão geral:**
-  - **Cards:** título à esquerda e número centralizado.
-    - A variação em relação ao dia anterior aparece em cinza no canto superior direito ("↑ 126", "↓ 45").
-    - A base da variação fica na dica: fechamento do último dia do período (ou dos dados) contra o do dia anterior.
+  - **Cards:** número alinhado à esquerda com o texto do título.
+    - Variação em relação ao dia anterior no canto superior direito ("↑ 126"), com cor semântica: verde quando melhora (mais câmeras funcionais; menos offline, erro de SD ou falhas) e vermelho quando piora.
+    - A base fica na dica: fechamento do último dia do período (ou dos dados) contra o do dia anterior.
     - Clicar num card filtra a tabela.
-  - **Tabela "Conexão por Empresa":** compacta; cabe inteira na tela em 1920×1080 e 1366×768.
+  - **Tabela "Conexão por Empresa"** (sem título visível): compacta e leve, com números centralizados em cinza, zeros em cinza-claro, só linhas horizontais suaves e pontos coloridos discretos nos cabeçalhos de status. Cabe inteira na tela em 1920×1080 e 1366×768.
     - A coluna Empresa e o total (Veículos ou Câmeras) ficam sempre visíveis.
     - Três blocos com chave própria, cada um com um tom de fundo suave:
-      - **Situação atual** (branco, ligado por padrão): Funcionais, 1+ câm. c/ falha, 100% offline, Erro SD. Os nomes são os mesmos no modo Câmera; nele, 1+ câm. c/ falha conta as câmeras offline de veículos parcialmente offline, e 100% offline as câmeras de veículos todo offline.
-      - **Falha por posição** (cinza quente, ligado por padrão): 21 a 26.
-      - **Manutenção** (azul claro, desligado por padrão): Atendidos, Reincidências, Procedentes, Solucionados, Improcedentes.
+      - **Situação atual** (branco, sem rótulo de grupo, ligado por padrão): Funcionais, 1+ câm. c/ falha, 100% offline, Erro SD. Os nomes são os mesmos no modo Câmera; nele, 1+ câm. c/ falha conta as câmeras offline de veículos parcialmente offline, e 100% offline as câmeras de veículos todo offline.
+      - **Falha por posição** (#FAFAF8, ligado por padrão): 21 a 26.
+      - **Manutenção** (#F7FAFD, desligado por padrão): Atendidos, Reincidências, Procedentes, Solucionados, Improcedentes.
     - Definições completas nas dicas dos cabeçalhos; ordenação, linha Total e exportação para Excel da visão atual.
     - **Clique num número de Falha por posição:** abre um modal só com os veículos da empresa (ou de todas, na linha Total) com aquela câmera em falha. Mostra prefixo, status, dias com problema, último registro e última manutenção resumida, com botão Exportar Excel.
   - **Clique no nome da empresa:** abre um modal com o gráfico de evolução diária da empresa.

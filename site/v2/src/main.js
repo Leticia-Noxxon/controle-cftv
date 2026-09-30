@@ -17,8 +17,7 @@ function cabecalho(aba) {
   upd.className = `atualizacao${carregado ? ' ok' : ''}`;
   upd.innerHTML = carregado ? `<i class="pt"></i>Última atualização ${dmy(D.meta.atualizacao.slice(0, 10))} ${D.meta.atualizacao.slice(11, 16)}` : '<i class="pt"></i>Carregando…';
   upd.title = 'Horário do registro mais recente nos dados';
-  document.getElementById('lateral').innerHTML = `<div class="logo" title="Controle de CFTV">${ICONE.sol}</div>
-    <nav class="nav-pill" aria-label="Abas">${Object.entries(ABAS).map(([k, a]) => `<button class="nav-b${k === aba ? ' ativo' : ''}" id="nav-${k}" data-tip="${a.titulo}" aria-label="${a.titulo}" ${k === aba ? 'aria-current="page"' : ''}>${a.icone}<span class="nav-rot">${a.titulo}</span></button>`).join('')}</nav>`;
+  document.getElementById('lateral').innerHTML = `<nav class="nav-pill" aria-label="Abas">${Object.entries(ABAS).map(([k, a]) => `<button class="nav-b${k === aba ? ' ativo' : ''}" id="nav-${k}" data-tip="${a.titulo}" aria-label="${a.titulo}" ${k === aba ? 'aria-current="page"' : ''}>${a.icone}<span class="nav-rot">${a.titulo}</span></button>`).join('')}</nav>`;
   document.getElementById('nav-visao').onclick = () => { location.hash = ''; };
   document.getElementById('nav-matriz').onclick = () => { location.hash = 'matriz'; };
   document.querySelectorAll('.nav-b').forEach((b) => {
