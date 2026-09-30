@@ -52,6 +52,13 @@ Filtros Empresa (com a opção METROPOLE), Câmera e Período (afetam tudo).
   - *Resolvidos (sem recorrência)* = dos que precisavam, a última visita necessária foi classificada como **Resolvido** (todas as câmeras com problema antes voltaram ao normal depois da visita e não falharam de novo até a próxima visita ou o fim dos dados). “Resolvido com recorrência” **não** conta.
   - Filtros: Período pela data da visita; Câmera = visitas que citam a câmera; Empresa = empresa do prefixo no monitoramento (visitas de prefixos fora do monitoramento saem quando há filtro de empresa).
 
+## Versão visual alternativa (v2)
+
+https://leticia-noxxon.github.io/controle-cftv/v2/ tem os mesmos dados, funções e significado de cores da versão principal, só com o estilo visual do "Property Management Dashboard UI Kit" (Paperpillar): painel claro arredondado, barra lateral em pílula (Monitoramento / Estatísticas), cards brancos com ícone em círculo suave, fontes Plus Jakarta Sans + Inter.
+- Código em `site/v2/` (cópia de `site/src` com `style.css` próprio), compilado à parte por `vite.v2.config.js` em `dist/v2/`; `npm run build` gera as duas versões e a versão principal não muda.
+- A v2 lê os mesmos arquivos de `data/` da raiz (`../data/`).
+- Validação: `python tests/capturas_v2.py http://localhost:4174/v2/ local_v2`.
+
 ## Garagem
 - Fontes: formulário de manutenção (`Revisão_CFTV…`, coluna Garagem) e, **só para garagem**, as exportações Jotform em `data/raw/garagens/`: `jotform_responses.xlsx` (de `C:\Automação Jotform\data\`, abas registro_de_configuracao, revisao_tecnica, revisao_cftv e gerenciamento_de_servico, 07/2025 a 09/2026) e `Revisão_CFTV2026-09-30_07_52_29.xlsx` (Downloads). Elas ficam fora de `data/raw/` para não trocar o formulário usado nas manutenções.
 - Verificadas e **não usadas**: CSVs do monitoramento e Relatório CFTV 28/09 (sem coluna de garagem); `ListaAVL`, `relatorio_armazenamento_ucps_*` e Relatórios CFTV de março (coluna “garagem” no nível da empresa, ex.: “VIA SUDESTE” sem Cursino/Sapopemba — equivale à empresa); `Tecnologia Geral.xlsx` (01/2026, nomes diferentes e só 75 % de concordância em Cursino/Sapopemba; Brás × Iguatemi divergente).
