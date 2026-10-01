@@ -1,7 +1,7 @@
 # Publica o dashboard no GitHub Pages a cada push na branch main.
 # Pré-requisito (uma vez): Settings → Pages → Build and deployment → Source: "GitHub Actions".
 # Os dados já vêm processados em site/public/data (gerados por scripts/atualizar_dados.py), então o CI só compila o site.
-# O build gera o site oficial (site/v2) na raiz de site/dist e o backup da versão anterior (site/v1) em site/dist/v1.
+# O build gera o site oficial (site/oficial) na raiz de site/dist, o backup (site/v1) em site/dist/v1 e o teste (site/v2) em site/dist/v2.
 name: Publicar Controle de CFTV (GitHub Pages)
 
 on:

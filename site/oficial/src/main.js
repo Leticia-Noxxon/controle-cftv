@@ -32,7 +32,8 @@ function cabecalho(aba) {
   upd.title = 'Horário do registro mais recente nos dados';
   document.getElementById('tema-btn').onclick = alternarTema;
   document.getElementById('lateral').innerHTML = `<div class="marca-lat">${logoOS()}<div class="marca-txt"><b>OS</b><span>Controle CFTV</span></div></div>
-    <div class="nav-sec">Painéis</div><nav class="nav-pill" aria-label="Abas">${Object.entries(ABAS).map(([k, a]) => `<button class="nav-b${k === aba ? ' ativo' : ''}" id="nav-${k}" data-tip="${a.titulo}" aria-label="${a.titulo}" ${k === aba ? 'aria-current="page"' : ''}>${a.icone}<span class="nav-rot">${a.titulo}</span></button>`).join('')}</nav>`;
+    <div class="nav-sec">Painéis</div><nav class="nav-pill" aria-label="Abas">${Object.entries(ABAS).map(([k, a]) => `<button class="nav-b${k === aba ? ' ativo' : ''}" id="nav-${k}" data-tip="${a.titulo}" aria-label="${a.titulo}" ${k === aba ? 'aria-current="page"' : ''}>${a.icone}<span class="nav-rot">${a.titulo}</span></button>`).join('')}</nav>
+    <div class="leg-lat" aria-label="Legenda de status"><h4>Status</h4>${[['on', 'Funcional'], ['fa', '1+ câm. com problema'], ['off', '100% Offline'], ['sd', 'Erro de SD'], ['nd', 'Sem conexão']].map(([k, r]) => `<div><i style="background:var(--${k === 'nd' ? 'c-nd' : `c-${k}`})"></i>${r}</div>`).join('')}</div>`;
   document.getElementById('nav-visao').onclick = () => { location.hash = ''; };
   document.getElementById('nav-matriz').onclick = () => { location.hash = 'matriz'; };
 }

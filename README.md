@@ -4,9 +4,11 @@ Painel estático (Vite + JavaScript, sem framework) publicado no GitHub Pages.
 
 | Endereço | O que é | Código |
 |---|---|---|
-| https://leticia-noxxon.github.io/controle-cftv/ | **Site oficial**: redesign "OS · Controle CFTV" (Visão geral, Matriz diária, OS, tema claro/escuro). Descrito na seção "Site oficial", mais abaixo. | `site/v2/` |
+| https://leticia-noxxon.github.io/controle-cftv/ | **Site oficial**: redesign "OS · Controle CFTV" (Visão geral, Matriz diária, OS, tema claro/escuro). Descrito na seção "Site oficial", mais abaixo. | `site/oficial/` (congelado) |
 | https://leticia-noxxon.github.io/controle-cftv/v1/ | **Backup da versão anterior** (Monitoramento + Estatísticas), mantido para poder ser restaurado. Lê os mesmos dados da raiz (`../data/`). | `site/v1/` |
-| https://leticia-noxxon.github.io/controle-cftv/v2/ | Endereço antigo do redesign: redireciona para a raiz, mantendo a aba (ex.: `/v2/#matriz` → `/#matriz`). | `site/public/v2/index.html` |
+| https://leticia-noxxon.github.io/controle-cftv/v2/ | **Ambiente de TESTE**: cópia própria do redesign, onde entram as mudanças novas (ex.: sem a legenda Status no menu; módulo de OS em preparação, atrás de feature flag). Lê os dados da raiz (`../data/`). | `site/v2/` |
+
+**Levar o teste para a raiz** (quando aprovado): copie `site/v2/` para `site/oficial/`, mantendo `site/oficial/src/dados.js` e `os.js` como estão, e faça o build. Backup do estado anterior ao módulo de OS: tag git `pre-modulo-os`.
 
 **Restaurar a v1 na raiz** (se precisar): em `site/vite.config.js` troque `root` para `v1` e, em `site/v1/src/dados.js`, volte `base` para `import.meta.env.BASE_URL`. Depois faça o build e o push.
 
@@ -64,7 +66,7 @@ Filtros Empresa (com a opção METROPOLE), Câmera e Período (afetam tudo).
 
 ## Site oficial (redesign "OS · Controle CFTV")
 
-https://leticia-noxxon.github.io/controle-cftv/ (raiz) tem identidade visual própria ("OS · Controle CFTV"). O código fica em `site/v2/` e lê os dados publicados em `./data/` (`site/public/data/`).
+https://leticia-noxxon.github.io/controle-cftv/ (raiz) tem identidade visual própria ("OS · Controle CFTV"). O código fica em `site/oficial/` e lê os dados publicados em `./data/` (`site/public/data/`). O ambiente de teste `/v2/` usa `site/v2/`, compilado com `vite.v2.config.js`, que define `VITE_DADOS='../'`.
 
 - **Marca:** o logo é um monograma "OS" (ordem de serviço) em SVG (`site/v2/src/logo.js`). É um selo quadrado arredondado em degradê azul → índigo (#3B82F6 → #2563EB → #4F46E5), com o "O" desenhado como lente de câmera. O mesmo desenho aparece na barra lateral, no cabeçalho do celular e no favicon. Close-up: `docs/screenshots/v2_logo.png`.
 - **Tema claro/escuro:** o botão sol/lua fica no cabeçalho. A escolha é salva no navegador (`localStorage 'cftv-tema'`); sem escolha salva, vale a preferência do sistema.
@@ -151,7 +153,7 @@ https://leticia-noxxon.github.io/controle-cftv/ (raiz) tem identidade visual pr�
   - **Dias com problema:** a sequência atual de dias com offline/erro de SD da câmera com o problema mais longo, contada do último dia com registro para trás. Um dia sem registro não interrompe nem conta; um dia 100% funcional encerra a sequência.
   - **Desempate:** 100% offline antes de parcial, depois mais câmeras afetadas.
 - **`site/public/os.json`:** gerado por `scripts/gerar_v2_os.py`, que roda no fim de `atualizar_dados.py`. Guarda o último registro (data/hora) e o nº de mudanças de estado nos últimos 7 dias por prefixo e câmera.
-- **Build:** `npm run build` primeiro gera o site oficial em `dist/` (`vite.config.js`, código `site/v2/`). Essa etapa copia `site/public/`: `data/`, `os.json` e o redirecionamento `v2/index.html`. Em seguida gera o backup em `dist/v1/` (`vite.v1.config.js`, código `site/v1/`). O GitHub Actions publica `site/dist` a cada push na `main`.
+- **Build:** `npm run build` primeiro gera o site oficial em `dist/` (`vite.config.js`, código `site/oficial/`). Essa etapa copia `site/public/`: `data/` e `os.json`. Em seguida gera o backup em `dist/v1/` (`vite.v1.config.js`, código `site/v1/`) e o teste em `dist/v2/` (`vite.v2.config.js`, código `site/v2/`). O GitHub Actions publica `site/dist` a cada push na `main`.
 - **Validação:** `python tests/capturas_v2.py http://localhost:4174/ local_v2` (site oficial). Também há `python tests/capturas.py http://localhost:4174/v1/ local` (backup v1) e `python tests/verificar_publicacao.py https://leticia-noxxon.github.io/controle-cftv/ pub`, que confere a raiz, /v1/ e /v2/ nas 3 telas, nos temas claro e escuro, sem erros de console ou de rede e sem cache. A validação do site oficial Confere 1920×1080, 1366×768 e 390×844 (Matriz sem rolagem; Visão geral sem rolagem horizontal) e gera `docs/OS_exemplo_todas.xlsx` e `docs/OS_exemplo_cam21.xlsx`.
 
 ## Garagem
@@ -234,9 +236,10 @@ Os arquivos brutos **não são versionados** (ficam em `data/raw/`, ignorado pel
 ```
 scripts/atualizar_dados.py      # script único: lê data/raw e gera site/public/data + data/processed (--reusar reaproveita a carga no DuckDB)
 scripts/pipeline/               # config, monitoramento (DuckDB: normalização, dedupe, intervalos, trechos), garagens, manutencao, analise
-site/v2/                        # SITE OFICIAL (raiz): index.html + src/ (main.js, dados.js, visao.js, matriz.js, garagem.js, os.js, logo.js, style.css…)
+site/oficial/                   # SITE OFICIAL (raiz), congelado: index.html + src/ (mesma estrutura de site/v2)
+site/v2/                        # TESTE (/v2/): index.html + src/ (main.js, dados.js, visao.js, matriz.js, garagem.js, os.js, logo.js, style.css…)
 site/v1/                        # backup da versão anterior (/v1/): index.html + src/ (main.js, dados.js, monitoramento.js, painel.js, estatisticas.js, style.css)
-site/public/                    # copiado para a raiz publicada: data/ (JSON), os.json (OS), v2/index.html (redireciona para a raiz)
+site/public/                    # copiado para a raiz publicada: data/ (JSON) e os.json (OS)
 tests/test_regras.py            # pytest: regras, dedupe/esquema alternativo, intervalos/meia-noite, garagens, texto de manutenção
 tests/capturas_v2.py            # validação do site oficial no navegador + capturas + OS de exemplo: python tests/capturas_v2.py URL_RAIZ nome
 tests/capturas.py               # validação do backup v1: python tests/capturas.py URL/v1/ nome

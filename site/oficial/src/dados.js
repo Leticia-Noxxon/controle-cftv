@@ -1,6 +1,6 @@
 // Carregamento dos dados pré-processados, decodificação e cálculos com memoização.
-// Ambiente de teste (/v2/): dados publicados na raiz (VITE_DADOS = '../'); sem a variável, ./data/
-const base = `${import.meta.env.BASE_URL}${import.meta.env.VITE_DADOS || ''}`;
+// Site oficial (raiz): dados publicados em ./data/ (site/public/data)
+const base = import.meta.env.BASE_URL;
 const obter = (a) => fetch(`${base}data/${a}`).then((r) => { if (!r.ok) throw new Error(`${a}: HTTP ${r.status}`); return r.json(); });
 
 export const POS = { 21: 'Frontal', 22: 'Frente', 23: 'Corredor 1', 24: 'Corredor 2', 25: 'Corredor 3', 26: 'Corredor 4' };

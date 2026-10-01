@@ -19,7 +19,7 @@ export const faixa = (r) => (r.s.cat === 'off' || r.dias >= 7 ? 'Alta' : r.dias 
 const PESO_FAIXA = { Alta: 0, Média: 1, Baixa: 2 };
 const JANELA = 7;
 let aux = null;
-export const carregarAux = () => { if (!aux) aux = fetch(`${import.meta.env.BASE_URL}${import.meta.env.VITE_DADOS || ''}os.json`).then((r) => (r.ok ? r.json() : { v: {} })).catch(() => ({ v: {} })); return aux; };
+export const carregarAux = () => { if (!aux) aux = fetch(`${import.meta.env.BASE_URL}os.json`).then((r) => (r.ok ? r.json() : { v: {} })).catch(() => ({ v: {} })); return aux; };
 
 const juntar = (xs) => (xs.length === 1 ? xs[0] : `${xs.slice(0, -1).join(', ')} e ${xs[xs.length - 1]}`);
 const dm = (i) => dmy(D.dias[i]).slice(0, 5);

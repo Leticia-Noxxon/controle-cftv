@@ -6,7 +6,7 @@
   "description": "Controle de CFTV: situação atual das câmeras, matriz diária por prefixo, problemas em aberto e manutenções",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && vite build -c vite.v1.config.js",
+    "build": "vite build && vite build -c vite.v1.config.js && vite build -c vite.v2.config.js",
     "preview": "vite preview --port 4174"
   },
   "dependencies": {
