@@ -231,6 +231,17 @@ Os arquivos brutos **não são versionados** (ficam em `data/raw/`, ignorado pel
 - Nenhum dado é inventado ou estimado; sem registro = “sem dados”.
 - Não há ranking de técnicos.
 
+## Módulo de OS (em teste em /v2/)
+
+Backend no **Supabase** (projeto `controle-cftv`, região São Paulo, plano gratuito); o site continua no GitHub Pages. Arquitetura, fases e decisões: `docs/modulo-os/arquitetura.md`. Formulário atual (Jotform) e regras do formulário nativo: `docs/modulo-os/jotform_analise.md`.
+
+- **No ar (Fase 1, só em /v2/)**: menu "Usuários e Permissões" → login por link mágico no e-mail (sem senha), primeiro administrador por código de uso único, gestão de usuários, pré-autorização por e-mail, matriz de permissões por perfil e exceções por usuário. A raiz não muda.
+- **Segurança**: RLS em todas as tabelas, regras no banco (RPCs e gatilhos), auditoria imutável. O navegador usa só a chave publicável (em `site/vite.v2.config.js`); a chave de serviço nunca entra no frontend nem no repositório.
+- **Banco**: `supabase/migrations/` (aplicadas em ordem). Seed da frota: `python scripts/gerar_seed_supabase.py`.
+- **Testes do banco** (Postgres local): `rm -rf /tmp/sb && cp -r supabase /tmp/sb && sudo chmod -R a+rX /tmp/sb && /tmp/sb/tests/rodar_local.sh && python supabase/tests/test_banco.py`.
+- **Testes da tela** (Supabase simulado, não envia e-mail): `python tests/usuarios_v2.py URL/v2/ nome`.
+- **Painel do Supabase** (uma vez): Authentication → URL Configuration → Site URL e Redirect URLs = `https://leticia-noxxon.github.io/controle-cftv/v2/`.
+
 ## Estrutura
 
 ```
@@ -244,6 +255,10 @@ tests/test_regras.py            # pytest: regras, dedupe/esquema alternativo, in
 tests/capturas_v2.py            # validação do site oficial no navegador + capturas + OS de exemplo: python tests/capturas_v2.py URL_RAIZ nome
 tests/capturas.py               # validação do backup v1: python tests/capturas.py URL/v1/ nome
 tests/verificar_publicacao.py   # raiz, /v1/ e /v2/ em 3 telas × claro/escuro, sem erros de console
+tests/usuarios_v2.py            # módulo de OS em /v2/#usuarios (login, primeiro acesso, gestão) com o Supabase simulado
+supabase/migrations/            # banco do módulo de OS (tabelas, RLS, RPCs, storage, seeds)
+supabase/tests/                 # Postgres local + test_banco.py (inclui concorrência ao iniciar manutenção)
+docs/modulo-os/                 # arquitetura, fases e análise do Jotform
 ```
 
 ### Dados publicados (`site/public/data/`)

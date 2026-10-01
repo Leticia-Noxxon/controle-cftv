@@ -4,11 +4,16 @@ import { paginaVisao } from './visao.js';
 import { paginaMatriz } from './matriz.js';
 import { calendario } from './calendario.js';
 import { logoOS } from './logo.js';
+import { OS_ATIVO, sb } from './supabase.js';
+import { paginaUsuarios, registrarErroLink } from './usuarios.js';
 
 // Filtros compartilhados entre as abas. Visão geral: empresa, câmera, prefixo, período. Matriz: empresa, câmera, mês.
 export const F = { empresa: '', camera: '', prefixo: '', de: '', ate: '', mes: '' };
 let carregado = false;
 const ABAS = { visao: { titulo: 'Visão geral', icone: ICONE.painel }, matriz: { titulo: 'Matriz diária', icone: ICONE.calgrade } };
+// Módulo de OS (só no ambiente de teste, atrás de feature flag): Fase 1 = login + Usuários e Permissões
+const ICONE_USUARIOS = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M18.5 14.2A6.5 6.5 0 0 1 21.5 20"/></svg>';
+if (OS_ATIVO) ABAS.usuarios = { titulo: 'Usuários e Permissões', icone: ICONE_USUARIOS, os: true };
 
 // Tema claro/escuro: localStorage 'cftv-tema'; padrão = preferência do sistema (aplicado já no index.html)
 const temaAtual = () => document.documentElement.dataset.tema || 'claro';
@@ -32,9 +37,11 @@ function cabecalho(aba) {
   upd.title = 'Horário do registro mais recente nos dados';
   document.getElementById('tema-btn').onclick = alternarTema;
   document.getElementById('lateral').innerHTML = `<div class="marca-lat">${logoOS()}<div class="marca-txt"><b>OS</b><span>Controle CFTV</span></div></div>
-    <div class="nav-sec">Painéis</div><nav class="nav-pill" aria-label="Abas">${Object.entries(ABAS).map(([k, a]) => `<button class="nav-b${k === aba ? ' ativo' : ''}" id="nav-${k}" data-tip="${a.titulo}" aria-label="${a.titulo}" ${k === aba ? 'aria-current="page"' : ''}>${a.icone}<span class="nav-rot">${a.titulo}</span></button>`).join('')}</nav>`;
+    <div class="nav-sec">Painéis</div><nav class="nav-pill" aria-label="Abas">${Object.entries(ABAS).map(([k, a]) => `${a.os ? '<div class="nav-sec nav-sec-os">Sistema de OS <span class="nav-teste">teste</span></div>' : ''}<button class="nav-b${k === aba ? ' ativo' : ''}" id="nav-${k}" data-tip="${a.titulo}" aria-label="${a.titulo}" ${k === aba ? 'aria-current="page"' : ''}>${a.icone}<span class="nav-rot">${a.titulo}</span></button>`).join('')}</nav>`;
   document.getElementById('nav-visao').onclick = () => { location.hash = ''; };
   document.getElementById('nav-matriz').onclick = () => { location.hash = 'matriz'; };
+  const nu = document.getElementById('nav-usuarios');
+  if (nu) nu.onclick = () => { location.hash = 'usuarios'; };
 }
 
 // Filtros aplicados automaticamente, na linha do título. campos: empresa, camera, prefixo, periodo, mes. extra: HTML à direita.
@@ -71,7 +78,7 @@ export function barraFiltros(campos, aoFiltrar, extra = '') {
 }
 
 function rota() {
-  const aba = location.hash === '#matriz' ? 'matriz' : 'visao';
+  const aba = location.hash === '#matriz' ? 'matriz' : location.hash === '#usuarios' && ABAS.usuarios ? 'usuarios' : 'visao';
   cabecalho(aba);
   document.getElementById('tip').style.display = 'none';
   document.getElementById('modal')?.remove();
@@ -80,10 +87,22 @@ function rota() {
   const app = document.getElementById('app');
   app.dataset.aba = aba;
   document.body.dataset.aba = aba; // a Visão geral pode rolar verticalmente (tabela inteira visível); a Matriz não
-  (aba === 'matriz' ? paginaMatriz : paginaVisao)(app);
+  ({ matriz: paginaMatriz, usuarios: paginaUsuarios, visao: paginaVisao })[aba](app);
+}
+
+// Volta do link mágico (#access_token=... ou #error=...): o SDK lê a sessão da URL; depois abre Usuários e Permissões
+async function retornoLogin() {
+  const h = location.hash;
+  if (!OS_ATIVO) return;
+  if (/error_description=|error=/.test(h)) { registrarErroLink(h); history.replaceState(null, '', location.pathname + location.search + '#usuarios'); return; }
+  if (/access_token=/.test(h)) {
+    try { const c = await sb(); await c.auth.getSession(); } catch (e) { /* tratado na tela */ }
+    history.replaceState(null, '', location.pathname + location.search + '#usuarios');
+  } else if (h === '#usuarios') { sb().catch(() => {}); }
 }
 
 async function iniciar() {
+  await retornoLogin();
   rota();
   try {
     await carregar();
