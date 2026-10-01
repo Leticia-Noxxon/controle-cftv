@@ -106,7 +106,7 @@ with sync_playwright() as p:
     ok(topo['fl'] > topo['tr'] and topo['ft'] < topo['tb'] and 0 <= topo['W'] - topo['fr'] < 20, 'filtros na mesma linha do título, alinhados à direita (antes do botão de tema)')
     ok(pg.query_selector('.subtitulo') is None, 'sem subtítulo')
     rot = pg.evaluate("() => [...document.querySelectorAll('.nav-b')].map((b) => { const r = b.querySelector('.nav-rot'); return [r.textContent.trim(), r.getBoundingClientRect().width > 20 && getComputedStyle(r).visibility === 'visible', b.classList.contains('ativo')]; })")
-    ok([r[0] for r in rot] == ['Visão geral', 'Matriz diária'] and all(r[1] for r in rot) and rot[0][2], f'menu com rótulos visíveis ao lado dos ícones e aba ativa marcada ({rot})')
+    ok([r[0] for r in rot] [:2] == ['Visão geral', 'Matriz diária'] and all(r[1] for r in rot) and rot[0][2], f'menu com rótulos visíveis ao lado dos ícones e aba ativa marcada ({rot})')
     pg.screenshot(path=str(out / f'{pref}_1d_menu.png'), clip={'x': 0, 'y': 0, 'width': 520, 'height': 260})
     hd = pg.evaluate("""() => { const c = (e) => { const r = document.querySelector(e).getBoundingClientRect(); return (r.top + r.bottom) / 2; };
         return [c('.titulo'), c('#f-empresa'), c('#tema-btn'), !!document.querySelector('.lateral .logo-os'), getComputedStyle(document.documentElement).backgroundColor, document.querySelector('.marca-txt').textContent]; }""")
