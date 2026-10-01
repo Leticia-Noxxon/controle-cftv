@@ -73,3 +73,6 @@ Módulos de `site/v2/src` (mesma estrutura em `site/oficial/src`):
 
 - **Authentication → URL Configuration**: Site URL = `https://leticia-noxxon.github.io/controle-cftv/v2/`; Redirect URLs = a mesma URL e `http://localhost:4174/v2/` (testes locais). Sem isso o link mágico volta para `localhost:3000`.
 - **E-mail**: o serviço de e-mail padrão do Supabase só entrega para e-mails da equipe da organização e tem limite baixo por hora. Para técnicos externos, configurar SMTP próprio (Authentication → Emails → SMTP Settings).
+
+### pg_safeupdate (Supabase)
+A API do Supabase carrega `pg_safeupdate`: todo `DELETE`/`UPDATE` executado por `authenticated`/`anon` (inclusive dentro de RPCs e gatilhos) precisa de `WHERE`. A migração `20261001001200_corrige_safeupdate.sql` corrigiu `reivindicar_admin`. O teste local (`supabase/tests/test_banco.py`) carrega `safeupdate` em toda requisição como usuário (desligue com `SAFEUPDATE=0`); para instalar localmente: `git clone https://github.com/eradman/pg-safeupdate && make && sudo make install`.

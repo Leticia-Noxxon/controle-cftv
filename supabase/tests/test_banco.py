@@ -11,6 +11,8 @@ import psycopg
 
 DSN = os.environ.get('PG_DSN', 'dbname=cftv_os')
 falhas = []
+# Supabase carrega pg_safeupdate para os papéis da API (DELETE/UPDATE sem WHERE falham)
+SAFEUPDATE = os.environ.get('SAFEUPDATE', '1') == '1'
 
 
 def ok(cond, msg):
@@ -24,7 +26,9 @@ def conn():
 
 
 def como(c, uid, papel='authenticated'):
-    """Inicia uma 'requisição' (transação) como o usuário."""
+    """Inicia uma 'requisição' (transação) como o usuário, com pg_safeupdate como na API do Supabase."""
+    if SAFEUPDATE:
+        c.execute("load 'safeupdate'")
     c.execute(f"set local role {papel}")
     c.execute("select set_config('request.jwt.claims', %s, true)", (json.dumps({'sub': str(uid), 'role': papel}) if uid else '',))
 
@@ -75,6 +79,7 @@ ok(req(U['estranho'], 'select count(*) from veiculos', um=True) == 0 and req(U['
 # ---------- primeiro administrador por código de uso único ----------
 adm("insert into privado.bootstrap_admin (codigo_hash, expira_em) values (extensions.crypt('codigo-certo-123', extensions.gen_salt('bf', 10)), now() + interval '1 day')")
 ok(req(U['leticia'], "select reivindicar_admin('errado')", um=True) == 'codigo_invalido', 'código errado não vira admin')
+ok(adm("select tentativas from privado.bootstrap_admin")[0][0] == 1, 'código errado conta 1 tentativa (UPDATE com WHERE, passa no safeupdate)')
 ok(req(U['leticia'], "select reivindicar_admin('codigo-certo-123')", um=True) == 'ok', 'código certo: Letícia vira Administrador')
 ok(req(U['estranho'], "select reivindicar_admin('codigo-certo-123')", um=True) == 'ja_existe_admin', 'código não serve de novo (já existe administrador)')
 for _ in range(6):
@@ -237,7 +242,7 @@ des = req(U['tec1'], 'select meu_desempenho(current_date - 1, current_date + 1)'
 ok(des['atendimentos'] == 1 and des['reincidentes'] == 1, f'Meu Desempenho (só do próprio técnico): {des}')
 logs = adm("select tabela, count(*) from logs_auditoria group by 1 order by 2 desc")
 ok(any(t == 'ordens_servico' for t, _ in logs) and any(t == 'atendimentos' for t, _ in logs), f'auditoria registrada ({dict(logs)})')
-ok(erro(req(U['leticia'], 'delete from logs_auditoria'), 'imutável') or req(U['leticia'], 'delete from logs_auditoria returning id') == [], 'admin não apaga logs')
+ok(erro(req(U['leticia'], 'delete from logs_auditoria where true'), 'imutável') or req(U['leticia'], 'delete from logs_auditoria where true returning id') == [], 'admin não apaga logs')
 try:
     adm('update logs_auditoria set tabela = tabela'); ok(False, 'logs imutáveis até para o superusuário')
 except Exception as e:  # noqa: BLE001

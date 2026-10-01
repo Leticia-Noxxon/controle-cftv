@@ -187,12 +187,12 @@ begin
   select * into b from privado.bootstrap_admin for update;
   if not found or b.expira_em < now() or b.tentativas >= 10 then return 'indisponivel'; end if;
   if extensions.crypt(p_codigo, b.codigo_hash) <> b.codigo_hash then
-    update privado.bootstrap_admin set tentativas = tentativas + 1;
+    update privado.bootstrap_admin set tentativas = tentativas + 1 where id = b.id;
     return 'codigo_invalido';
   end if;
   perform set_config('app.rpc', 'on', true);
   update public.usuarios set perfil_id = (select id from public.perfis where codigo = 'administrador'), ativo = true where id = v_uid;
-  delete from privado.bootstrap_admin;
+  delete from privado.bootstrap_admin where id = b.id;
   return 'ok';
 end $$;
 
