@@ -225,9 +225,9 @@ def main(reusar=False):
     }
     (config.PROCESSED / 'resumo_atualizacao.json').write_text(json.dumps(resumo, ensure_ascii=False, indent=1, default=str), encoding='utf-8')
     print(json.dumps(resumo, ensure_ascii=False, indent=1, default=str))
-    # dados auxiliares da Ordem de Serviço da versão v2 (site/v2/public/os.json); não afeta a versão principal
+    # dados auxiliares da Ordem de Serviço do site oficial (site/public/os.json)
     import gerar_v2_os
-    print('v2 os.json:', gerar_v2_os.gerar(con))
+    print('os.json (OS):', gerar_v2_os.gerar(con))
     return resumo
 
 

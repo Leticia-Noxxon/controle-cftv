@@ -28,7 +28,7 @@ def test_toda_garagem_do_formulario_mapeada_para_uma_empresa():
 
 
 def test_os_json():
-    arq = RAIZ / 'site' / 'v2' / 'public' / 'os.json'
+    arq = RAIZ / 'site' / 'public' / 'os.json'
     d = json.loads(arq.read_text(encoding='utf-8'))
     frota = json.loads((RAIZ / 'site' / 'public' / 'data' / 'frota.json').read_text(encoding='utf-8'))['veiculos']
     assert d['janela'][1] == META['dias'][-1] and d['janela_dias'] == 7

@@ -1,5 +1,5 @@
-"""Validação da versão v2 no navegador (local ou publicada) + capturas de tela + OS de exemplo.
-Uso: python tests/capturas_v2.py URL_V2 PREFIXO   (ex.: http://localhost:4174/v2/ local_v2)"""
+"""Validação do site oficial (redesign v2, publicado na raiz) no navegador (local ou publicado) + capturas de tela + OS de exemplo.
+Uso: python tests/capturas_v2.py URL_RAIZ PREFIXO   (ex.: http://localhost:4174/ local_v2)"""
 import sys
 from pathlib import Path
 
@@ -95,8 +95,8 @@ with sync_playwright() as p:
     pg.on('pageerror', lambda e: erros.append(str(e)))
     pg.goto(url, wait_until='networkidle')
     pg.wait_for_selector('#v-tabela .gt')
-    frota = pg.evaluate("fetch('../data/frota.json').then(r => r.json())")
-    meta = pg.evaluate("fetch('../data/meta.json').then(r => r.json())")
+    frota = pg.evaluate("fetch('data/frota.json').then(r => r.json())")
+    meta = pg.evaluate("fetch('data/meta.json').then(r => r.json())")
     nveic = len(frota['veiculos'])
 
     # ---------------- Cabeçalho ----------------

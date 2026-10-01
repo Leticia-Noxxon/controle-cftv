@@ -1,5 +1,6 @@
 """Validação no navegador (site local ou publicado) + capturas de tela.
-Uso: python tests/capturas.py URL PREFIXO_ARQUIVO   (ex.: http://localhost:4174/ local)"""
+Agora valida o backup v1 em /v1/ (os dados ficam na raiz, ../data/).
+Uso: python tests/capturas.py URL_V1 PREFIXO_ARQUIVO   (ex.: http://localhost:4174/v1/ local)"""
 import json
 import sys
 from pathlib import Path
@@ -29,8 +30,8 @@ with sync_playwright() as p:
     pg.on('pageerror', lambda e: erros.append(str(e)))
     pg.goto(url, wait_until='networkidle')
     pg.wait_for_selector('.st')
-    meta = pg.evaluate("fetch('data/meta.json').then(r => r.json())")
-    frota = pg.evaluate("fetch('data/frota.json').then(r => r.json())")
+    meta = pg.evaluate("fetch('../data/meta.json').then(r => r.json())")
+    frota = pg.evaluate("fetch('../data/frota.json').then(r => r.json())")
     dias = meta['dias']
     ok(dias == sorted(set(dias)), f'datas ordenadas e sem repetição ({len(dias)}: {dias[0]} … {dias[-1]})')
     cab = [e.inner_text().split('\n')[0] for e in pg.query_selector_all('.cel-h.dia-h')] or \

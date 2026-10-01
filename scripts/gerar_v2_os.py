@@ -1,4 +1,4 @@
-"""Dados auxiliares da Ordem de Serviço da versão v2 (site/v2/public/os.json).
+"""Dados auxiliares da Ordem de Serviço da versão v2 (site/public/os.json).
 
 Lê a base de trabalho do pipeline (data/processed/_trabalho.duckdb, tabela camera_dia) e grava, por prefixo e câmera:
   - u: data/hora local do último registro da câmera em todo o período dos dados ("AAAA-MM-DDTHH:MM");
@@ -6,7 +6,7 @@ Lê a base de trabalho do pipeline (data/processed/_trabalho.duckdb, tabela came
 A transição é contada no registro em que o estado muda em relação ao registro anterior da mesma câmera (coluna
 transicao de reg3, somada por dia em camera_dia.transicoes). A sequência de dias com problema (início e duração) é
 calculada no navegador a partir das máscaras diárias de frota.json (ver site/v2/src/os.js).
-Não altera nenhum arquivo da versão principal. É chamado ao final de scripts/atualizar_dados.py e pode rodar sozinho.
+Usado pelo site oficial (raiz). É chamado ao final de scripts/atualizar_dados.py e pode rodar sozinho.
 """
 import json
 import sys
@@ -17,7 +17,7 @@ import duckdb
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from pipeline import config  # noqa: E402
 
-SAIDA = config.ROOT / 'site' / 'v2' / 'public' / 'os.json'
+SAIDA = config.ROOT / 'site' / 'public' / 'os.json'
 JANELA_DIAS = 7
 
 

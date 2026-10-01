@@ -1,5 +1,6 @@
 // Carregamento dos dados pré-processados, decodificação e cálculos com memoização.
-const base = import.meta.env.BASE_URL;
+// v1 (backup da versão anterior) fica em /v1/ e lê os dados compartilhados da raiz (../data/)
+const base = `${import.meta.env.BASE_URL}../`;
 const obter = (a) => fetch(`${base}data/${a}`).then((r) => { if (!r.ok) throw new Error(`${a}: HTTP ${r.status}`); return r.json(); });
 
 export const POS = { 21: 'Frontal', 22: 'Frente', 23: 'Corredor 1', 24: 'Corredor 2', 25: 'Corredor 3', 26: 'Corredor 4' };

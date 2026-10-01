@@ -1,13 +1,23 @@
 # Controle de CFTV
 
-Painel estático (Vite + JavaScript, sem framework) publicado no GitHub Pages: https://leticia-noxxon.github.io/controle-cftv/
+Painel estático (Vite + JavaScript, sem framework) publicado no GitHub Pages.
+
+| Endereço | O que é | Código |
+|---|---|---|
+| https://leticia-noxxon.github.io/controle-cftv/ | **Site oficial**: redesign "OS · Controle CFTV" (Visão geral, Matriz diária, OS, tema claro/escuro). Descrito na seção "Site oficial", mais abaixo. | `site/v2/` |
+| https://leticia-noxxon.github.io/controle-cftv/v1/ | **Backup da versão anterior** (Monitoramento + Estatísticas), mantido para poder ser restaurado. Lê os mesmos dados da raiz (`../data/`). | `site/v1/` |
+| https://leticia-noxxon.github.io/controle-cftv/v2/ | Endereço antigo do redesign: redireciona para a raiz, mantendo a aba (ex.: `/v2/#matriz` → `/#matriz`). | `site/public/v2/index.html` |
+
+**Restaurar a v1 na raiz** (se precisar): em `site/vite.config.js` troque `root` para `v1` e, em `site/v1/src/dados.js`, volte `base` para `import.meta.env.BASE_URL`. Depois faça o build e o push.
+
+## Backup v1 (versão anterior)
 
 Duas páginas, sem recarregar (rota por `#`):
 
-- **Monitoramento** (`/`): cabeçalho (última atualização = horário do registro mais recente dos dados), filtros, 4 cards, tabela Garagem × Prefixo × Disponibilidade × datas (uma única tabela com rolagem), painel de detalhe e legenda. Botão `›` no canto → Estatísticas.
+- **Monitoramento** (`/v1/`): cabeçalho (última atualização = horário do registro mais recente dos dados), filtros, 4 cards, tabela Garagem × Prefixo × Disponibilidade × datas (uma única tabela com rolagem), painel de detalhe e legenda. Botão `›` no canto → Estatísticas.
 - **Estatísticas** (`#estatisticas`): ranking de conexão das câmeras (por empresa) e ranking de manutenção (por garagem). Botão `‹` volta ao monitoramento.
 
-## Página 1 — Monitoramento
+### Página 1 — Monitoramento
 
 - **Filtros** (combinam entre si; aplicados **automaticamente**: Empresa, Câmera e Período na mudança, Prefixo enquanto digita, com espera de 300 ms; não há botão Filtrar): Empresa, Câmera, Prefixo (parte do número ou lista separada por vírgula) e Período (data inicial–final, limitado às datas presentes nos dados). Não há filtro de Garagem (a garagem continua na tabela); ele volta só se mais de 90 % dos prefixos tiverem garagem (hoje 52,7 %).
   - **Empresa → METROPOLE**: opção extra que agrupa todas as empresas cujo nome contém “METROPOLE” (sem diferenciar maiúsculas/acentos): METROPOLE - AE CARVALHO, METROPOLE - EXPANDIR, METROPOLE - IGUATEMI, METROPOLE - IMPERADOR, METROPOLE - ITAIM, METROPOLE - MBOI - MIRIM e METROPOLE PAULISTA - DEPINEDO. As empresas individuais continuam na lista.
@@ -42,7 +52,7 @@ Duas páginas, sem recarregar (rota por `#`):
 ### Texto de manutenção no painel
 Quebras `<br>`/linhas/`;` viram itens; removem-se marcadores, linhas vazias, frases padrão (“Nenhuma anomalia identificada”, “Nenhuma ação realizada”) e repetições. Nada é reescrito: números de câmera, componentes, cabo, SD, UCP, TDM etc. ficam como o técnico escreveu. **Ação** prioriza a observação final do técnico; se não houver, usa as ações marcadas no formulário. Linhas longas são cortadas com “…” (o texto completo fica em “Ver registro completo”).
 
-## Página 2 — Estatísticas
+### Página 2 — Estatísticas
 Filtros Empresa (com a opção METROPOLE), Câmera e Período (afetam tudo).
 - **Ranking de conexão das câmeras** (só dados de monitoramento), uma linha por empresa real, ordenado pela menor disponibilidade de conexão: disponibilidade = tempo online ÷ tempo monitorado no período (mesma regra da página 1, sem “Sem dados”); câmeras com falha e veículos com falha = mesma definição dos cards (último registro da câmera no período offline ou com erro de SD).
 - **Ranking de manutenção** (formulário + análise antes/depois do pipeline): uma linha por **garagem do formulário**, com **contagem de veículos** (prefixos distintos), ordenada por *Veículos com manutenção* (decrescente), e uma linha Total. Cada veículo entra na garagem do seu formulário mais recente no período (o Total não duplica).
@@ -52,9 +62,9 @@ Filtros Empresa (com a opção METROPOLE), Câmera e Período (afetam tudo).
   - *Resolvidos (sem recorrência)* = dos que precisavam, a última visita necessária foi classificada como **Resolvido** (todas as câmeras com problema antes voltaram ao normal depois da visita e não falharam de novo até a próxima visita ou o fim dos dados). “Resolvido com recorrência” **não** conta.
   - Filtros: Período pela data da visita; Câmera = visitas que citam a câmera; Empresa = empresa do prefixo no monitoramento (visitas de prefixos fora do monitoramento saem quando há filtro de empresa).
 
-## Versão v2 (layout alternativo)
+## Site oficial (redesign "OS · Controle CFTV")
 
-https://leticia-noxxon.github.io/controle-cftv/v2/ tem identidade visual própria ("OS · Controle CFTV") e usa os mesmos dados da versão principal (`../data/`). A versão principal não muda.
+https://leticia-noxxon.github.io/controle-cftv/ (raiz) tem identidade visual própria ("OS · Controle CFTV"). O código fica em `site/v2/` e lê os dados publicados em `./data/` (`site/public/data/`).
 
 - **Marca:** o logo é um monograma "OS" (ordem de serviço) em SVG (`site/v2/src/logo.js`). É um selo quadrado arredondado em degradê azul → índigo (#3B82F6 → #2563EB → #4F46E5), com o "O" desenhado como lente de câmera. O mesmo desenho aparece na barra lateral, no cabeçalho do celular e no favicon. Close-up: `docs/screenshots/v2_logo.png`.
 - **Tema claro/escuro:** o botão sol/lua fica no cabeçalho. A escolha é salva no navegador (`localStorage 'cftv-tema'`); sem escolha salva, vale a preferência do sistema.
@@ -140,9 +150,9 @@ https://leticia-noxxon.github.io/controle-cftv/v2/ tem identidade visual própri
   - **Baixa:** problema há menos de 3 dias.
   - **Dias com problema:** a sequência atual de dias com offline/erro de SD da câmera com o problema mais longo, contada do último dia com registro para trás. Um dia sem registro não interrompe nem conta; um dia 100% funcional encerra a sequência.
   - **Desempate:** 100% offline antes de parcial, depois mais câmeras afetadas.
-- **`site/v2/public/os.json`:** gerado por `scripts/gerar_v2_os.py`, que roda no fim de `atualizar_dados.py`. Guarda o último registro (data/hora) e o nº de mudanças de estado nos últimos 7 dias por prefixo e câmera.
-- **Build:** `npm run build` gera a raiz e depois `dist/v2/` (`vite.v2.config.js`).
-- **Validação:** `python tests/capturas_v2.py http://localhost:4174/v2/ local_v2`. Confere 1920×1080, 1366×768 e 390×844 (Matriz sem rolagem; Visão geral sem rolagem horizontal) e gera `docs/OS_exemplo_todas.xlsx` e `docs/OS_exemplo_cam21.xlsx`.
+- **`site/public/os.json`:** gerado por `scripts/gerar_v2_os.py`, que roda no fim de `atualizar_dados.py`. Guarda o último registro (data/hora) e o nº de mudanças de estado nos últimos 7 dias por prefixo e câmera.
+- **Build:** `npm run build` primeiro gera o site oficial em `dist/` (`vite.config.js`, código `site/v2/`). Essa etapa copia `site/public/`: `data/`, `os.json` e o redirecionamento `v2/index.html`. Em seguida gera o backup em `dist/v1/` (`vite.v1.config.js`, código `site/v1/`). O GitHub Actions publica `site/dist` a cada push na `main`.
+- **Validação:** `python tests/capturas_v2.py http://localhost:4174/ local_v2` (site oficial). Também há `python tests/capturas.py http://localhost:4174/v1/ local` (backup v1) e `python tests/verificar_publicacao.py https://leticia-noxxon.github.io/controle-cftv/ pub`, que confere a raiz, /v1/ e /v2/ nas 3 telas, nos temas claro e escuro, sem erros de console ou de rede e sem cache. A validação do site oficial Confere 1920×1080, 1366×768 e 390×844 (Matriz sem rolagem; Visão geral sem rolagem horizontal) e gera `docs/OS_exemplo_todas.xlsx` e `docs/OS_exemplo_cam21.xlsx`.
 
 ## Garagem
 - Fontes: formulário de manutenção (`Revisão_CFTV…`, coluna Garagem) e, **só para garagem**, as exportações Jotform em `data/raw/garagens/`: `jotform_responses.xlsx` (de `C:\Automação Jotform\data\`, abas registro_de_configuracao, revisao_tecnica, revisao_cftv e gerenciamento_de_servico, 07/2025 a 09/2026) e `Revisão_CFTV2026-09-30_07_52_29.xlsx` (Downloads). Elas ficam fora de `data/raw/` para não trocar o formulário usado nas manutenções.
@@ -224,9 +234,13 @@ Os arquivos brutos **não são versionados** (ficam em `data/raw/`, ignorado pel
 ```
 scripts/atualizar_dados.py      # script único: lê data/raw e gera site/public/data + data/processed (--reusar reaproveita a carga no DuckDB)
 scripts/pipeline/               # config, monitoramento (DuckDB: normalização, dedupe, intervalos, trechos), garagens, manutencao, analise
-site/src/                       # main.js (rotas, cabeçalho, filtros), dados.js (carga, índices, regras), monitoramento.js, painel.js, estatisticas.js, style.css
+site/v2/                        # SITE OFICIAL (raiz): index.html + src/ (main.js, dados.js, visao.js, matriz.js, garagem.js, os.js, logo.js, style.css…)
+site/v1/                        # backup da versão anterior (/v1/): index.html + src/ (main.js, dados.js, monitoramento.js, painel.js, estatisticas.js, style.css)
+site/public/                    # copiado para a raiz publicada: data/ (JSON), os.json (OS), v2/index.html (redireciona para a raiz)
 tests/test_regras.py            # pytest: regras, dedupe/esquema alternativo, intervalos/meia-noite, garagens, texto de manutenção
-tests/capturas.py               # validação no navegador (Playwright) + capturas: python tests/capturas.py URL nome
+tests/capturas_v2.py            # validação do site oficial no navegador + capturas + OS de exemplo: python tests/capturas_v2.py URL_RAIZ nome
+tests/capturas.py               # validação do backup v1: python tests/capturas.py URL/v1/ nome
+tests/verificar_publicacao.py   # raiz, /v1/ e /v2/ em 3 telas × claro/escuro, sem erros de console
 ```
 
 ### Dados publicados (`site/public/data/`)
@@ -243,9 +257,9 @@ No navegador: índices por empresa/câmera/prefixo, filtros memorizados e rolage
 ```bash
 python -m venv venv && . venv/bin/activate && pip install -r requirements.txt
 # copie os novos arquivos para data/raw/ (bq-results-*.csv, Revisão_CFTV*.xlsx, Relatório CFTV*.xlsx)
-python scripts/atualizar_dados.py          # ~3 min, usa DuckDB (limite de memória em scripts/pipeline/config.py)
+python scripts/atualizar_dados.py          # ~3 min; gera site/public/data (raiz e /v1/) e site/public/os.json;, usa DuckDB (limite de memória em scripts/pipeline/config.py)
 python -m pytest -q tests/test_regras.py
-cd site && npm ci && npm run build          # ou npm run dev para ver localmente
+cd site && npm ci && npm run build          # dist/ = site oficial (site/v2) + dist/v1 (backup); npm run dev para ver localmente
 git add -A && git commit -m "Atualiza dados" && git push   # o GitHub Actions publica no Pages
 ```
 
