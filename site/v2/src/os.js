@@ -1,7 +1,7 @@
 // OS (Ordem de Serviço): modal de seleção + geração do .xlsx para o técnico de campo, no navegador.
 // Base: último registro de cada câmera em TODO o período dos dados (mesma regra dos cards) + os.json (último registro
 // com hora e nº de mudanças de estado nos últimos 7 dias, pré-calculados por scripts/gerar_v2_os.py).
-import { D, ultimoCodigo, catCodigo, situacao, empresaPassa, camNome, dmy, esc, fmtN, ICONE, GRUPO_METROPOLE, CAMS_POS } from './dados.js';
+import { D, ultimoCodigo, catCodigo, situacao, empresaPassa, camNome, dmy, esc, fmtN, ICONE, GRUPO_METROPOLE, CAMS_POS, dataHoraU } from './dados.js';
 import { F } from './main.js';
 import { abrirModal, fecharModal } from './garagem.js';
 import { carregarExcel, baixar, agora, fill, COR_XL } from './xlsx.js';
@@ -23,7 +23,7 @@ export const carregarAux = () => { if (!aux) aux = fetch(`${import.meta.env.BASE
 
 const juntar = (xs) => (xs.length === 1 ? xs[0] : `${xs.slice(0, -1).join(', ')} e ${xs[xs.length - 1]}`);
 const dm = (i) => dmy(D.dias[i]).slice(0, 5);
-const dataHora = (iso) => (iso ? `${dmy(iso.slice(0, 10))} ${iso.slice(11, 16)}` : '—');
+const dataHora = dataHoraU;
 let porVeic = null;
 // última manutenção do veículo; com câmera escolhida, a última que cita a câmera (ou não informa câmera)
 function ultimaManutencao(p, cam) {
@@ -61,7 +61,8 @@ export function analisar(v, camSel, A) {
     }
     let var7 = false;
     if (k === 'on') for (let i = Math.max(0, D.nd - JANELA); i < D.nd; i += 1) if (Number(mask[i] || 0) & 6) var7 = true;
-    const semCon = uc && uc < limIso;
+    // leitura diária sem horário (uc só com a data): dentro das 24 h se o dia não for anterior ao dia do limite
+    const semCon = uc && (uc.length <= 10 ? uc < limIso.slice(0, 10) : uc < limIso);
     const st = semCon ? 'Sem conexão' : k === 'off' ? 'Offline' : k === 'fa' ? 'Erro SD' : var7 ? 'Variação' : 'Funcional';
     cams[c] = { k, st, ini, n, uc, mc, semCon };
   });

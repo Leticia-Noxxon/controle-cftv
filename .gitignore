@@ -35,3 +35,6 @@ Thumbs.db
 .vscode/
 .idea/
 docs/screenshots/local_*
+
+# Leituras do Relatório CFTV diário (cópia linha a linha com o texto original; regenerável)
+data/processed/leituras_diarias.csv

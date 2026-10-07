@@ -90,6 +90,36 @@
   ],
   "prefixos_multiempresa": 57
  },
+ "leituras_diarias": [
+  {
+   "arquivo": "Relatório CFTV - 06.10.2026.xlsx",
+   "data": "2026-10-06",
+   "veiculos_no_relatorio": 5220,
+   "sem_cameras": 0,
+   "remapeados": 842,
+   "novos": 2,
+   "pendentes": 2,
+   "horas_bigquery_no_dia": 0,
+   "leituras_usadas": 16708,
+   "veiculos_com_leitura": 5204,
+   "substituidas_mesma_camera": 34,
+   "substituidas_dia_coberto": 0
+  },
+  {
+   "arquivo": "Relatório CFTV - 28.09.2026.xlsx",
+   "data": "2026-09-28",
+   "veiculos_no_relatorio": 5212,
+   "sem_cameras": 0,
+   "remapeados": 381,
+   "novos": 0,
+   "pendentes": 0,
+   "horas_bigquery_no_dia": 24,
+   "leituras_usadas": 0,
+   "veiculos_com_leitura": 0,
+   "substituidas_mesma_camera": 0,
+   "substituidas_dia_coberto": 16814
+  }
+ ],
  "eventos": 661,
  "resultado": {
   "Sem dados para avaliar": 180,

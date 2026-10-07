@@ -1,7 +1,7 @@
 // Aba 2 — Matriz: filtros (Empresa, Câmera, Mês) na linha do título, filtro de status (chips = legenda), matriz
 // painel de detalhe (clique na célula) e botão OS (Ordem de Serviço).
 import { F, barraFiltros } from './main.js';
-import { ICONE, D, veiculosFiltrados, faixaDias, estadoDia, manutDia, tempos, dispPeriodo, camNome, fmtN, fmtP, diaSemana, dmy, dur, esc, ROTULO, DEF_STATUS, posicionarTip } from './dados.js';
+import { ICONE, D, veiculosFiltrados, faixaDias, estadoDia, manutDia, tempos, dispPeriodo, camNome, fmtN, fmtP, diaSemana, dmy, dur, esc, ROTULO, DEF_STATUS, posicionarTip, semHorario } from './dados.js';
 import { abrirPainel, fecharPainel } from './painel.js';
 import { abrirOS } from './os.js';
 
@@ -170,13 +170,20 @@ function conteudoTip(v, i) {
   const prob = camsDia.filter((c) => Number(v.k[c][i]) & 6);
   const e = estadoDia(v, i, cam);
   const l = (a, b) => `<div class="l"><span>${a}</span><b>${b}</b></div>`;
-  return `<div class="t1">${diaSemana(D.dias[i])}, ${dmy(D.dias[i])} · ${v.p}</div>`
+  // leituras diárias sem horário (Relatório CFTV): sem tempos; o dia aparece como "DD/MM/AAAA (sem horário)"
+  const shDia = camsDia.filter((c) => semHorario(v, c, i));
+  const soDiario = camsDia.length > 0 && shDia.length === camsDia.length;
+  const tempo = soDiario
+    ? l('Origem', 'Relatório CFTV diário') + '<div class="sub" style="margin-top:4px">Leitura do dia sem horário: sem tempos nem disponibilidade</div>'
+    : l('Disponibilidade', tot ? fmtP((100 * ok) / tot) : '—')
+      + l('Funcional', dur(ok)) + l('Offline', dur(off)) + (fa ? l('Erro de SD card', dur(fa)) : '')
+      + (shDia.length ? l('Sem horário', `Câm ${shDia.join(', ')} (Relatório CFTV)`) : '');
+  return `<div class="t1">${diaSemana(D.dias[i])}, ${dmy(D.dias[i])}${soDiario ? ' (sem horário)' : ''} · ${v.p}</div>`
     + l('Empresa', esc(v.garagem))
     + l(cam ? 'Câmera' : 'Câmeras', cam ? camNome(cam).replace('Câmera ', '') : (camsDia.join(', ') || '—'))
     + (!cam && prob.length ? l('Com problema', prob.join(', ')) : '')
     + l('Status', ROTULO[e])
-    + l('Disponibilidade', tot ? fmtP((100 * ok) / tot) : '—')
-    + l('Funcional', dur(ok)) + l('Offline', dur(off)) + (fa ? l('Erro de SD card', dur(fa)) : '')
+    + tempo
     + l('Manutenção', manutDia(v, i, cam).length ? 'Sim' : 'Não')
-    + (!cam && camsDia.length > 1 ? `<div class="sub" style="margin-top:4px">Tempos somados de ${camsDia.length} câmeras</div>` : '');
+    + (!cam && camsDia.length - shDia.length > 1 ? `<div class="sub" style="margin-top:4px">Tempos somados de ${camsDia.length - shDia.length} câmeras</div>` : '');
 }

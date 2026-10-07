@@ -234,6 +234,12 @@ export const fmtP = (v, d = 1) => (v == null ? '—' : `${v.toLocaleString('pt-B
 const SEM = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 export const diaSemana = (iso) => SEM[new Date(`${iso}T12:00:00`).getDay()];
 export const dmy = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : '');
+// Leitura diária SEM horário (Relatório CFTV, decisão de 07/10/2026): a câmera c só tem, no dia i, a leitura do
+// relatório (situação do dia, sem hora). Conta na cor do dia e na situação atual; não tem tempos nem linha do tempo.
+export const semHorario = (v, c, i) => !!v.sh?.[c]?.includes(i);
+// Último registro (os.json): 'AAAA-MM-DDTHH:MM' ou só 'AAAA-MM-DD' quando é uma leitura diária sem horário
+export const dataHoraU = (u) => (!u ? '—' : u.length <= 10 ? `${dmy(u)} (sem horário)` : `${dmy(u.slice(0, 10))} ${u.slice(11, 16)}`);
+
 // durações arredondadas a 5 min (a coleta é aproximadamente horária; não há precisão de minuto)
 export function dur(min) {
   const m = Math.round(min / 5) * 5;

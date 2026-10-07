@@ -31,3 +31,4 @@ ed377622cd684244c21c00b4c6842aa7fdb97ac59c937c92e49cd0c43ed2f92d  data/raw/bq-re
 e978e22176ecda6de176111e65da1e951997234666b09e41bfd0fc39714e27f8  data/raw/bq-results-20261007-114522-painel_manutencao-cameras-cftv(8).csv
 69d2a524da0e4df3a1474643775b6cf423b7bc4f233447acdc238c27ee8aa0c0  data/raw/bq-results-20261007-114611-painel_manutencao-cameras-cftv(11).csv
 8a7adebdcde29429a6ef530fc3c57da5bed5b30f4d69cdd97b318f90d8d1b770  data/raw/bq-results-20261007-114612-painel_manutencao-cameras-cftv(10).csv
+f0adde723c6e98f5055f73ec5a165db5dd4df02f01e54eb83a65ed5ebe4d09a8  data/raw/Relatório CFTV - 06.10.2026.xlsx

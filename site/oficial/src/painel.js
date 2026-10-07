@@ -1,6 +1,6 @@
 // Painel de detalhe do veículo: prefixo + data, câmeras, métricas do dia, linha do tempo e manutenção.
 // Pode ser aberto na Matriz (ao lado da tabela) ou no detalhe da garagem (dentro do modal).
-import { D, manutDia, detalhe, estadoDia, camNome, diaSemana, dmy, dur, hhmm, fmtP, esc, ICONE, ROTULO_CURTO } from './dados.js';
+import { D, manutDia, detalhe, estadoDia, camNome, diaSemana, dmy, dur, hhmm, fmtP, esc, ICONE, ROTULO_CURTO, semHorario } from './dados.js';
 
 const COR = { N: 'var(--on)', F: 'var(--fa)', O: 'var(--off)', S: 'var(--nd)' };
 const NOME = { N: 'Funcional', F: 'Erro de SD card', O: 'Offline', S: 'Sem conexão' };
@@ -56,7 +56,7 @@ async function desenhar() {
   box.querySelectorAll('.cam-b').forEach((b) => b.addEventListener('click', () => { atual.cam = Number(b.dataset.c); desenhar(); }));
   const det = await detalhe(p);
   if (!atual || atual.p !== p || atual.i !== i || atual.cam !== cam) return;
-  box.querySelector('#pn-dia').innerHTML = `<h3>${esc(camNome(cam))}</h3>${blocoDia(det.t?.[cam]?.[dia] || [])}${notaCobertura(i)}`;
+  box.querySelector('#pn-dia').innerHTML = `<h3>${esc(camNome(cam))}</h3>${semHorario(v, cam, i) ? blocoDiario(v, cam, i) : `${blocoDia(det.t?.[cam]?.[dia] || [])}${notaCobertura(i)}`}`;
   box.querySelectorAll('[data-bruto]').forEach((b) => b.addEventListener('click', () => {
     const alvo = box.querySelector(`#bruto-${b.dataset.bruto}`);
     if (alvo.classList.toggle('oculto')) { b.textContent = 'Ver registro completo'; return; }
@@ -80,8 +80,20 @@ function intervalosDia(trechos) {
   return out;
 }
 
+
+// Leitura diária SEM horário (Relatório CFTV): só a situação do dia; sem linha do tempo, tempos ou disponibilidade
+function blocoDiario(v, cam, i) {
+  const x = v.l?.[cam]?.[i] || '';
+  const e = estadoCod(x);
+  const erros = /^[1-7]$/.test(x) ? [[1, 'SD'], [2, 'Login'], [4, 'Gravação']].filter(([b]) => Number(x) & b).map(([, n]) => n).join(', ') : '';
+  const nome = e === 'F' ? `Online com erro${erros ? ` (${erros})` : ''}` : NOME[e];
+  return `<div class="intervalos"><div class="iv" title="Leitura do Relatório CFTV diário"><i style="background:${COR[e]}"></i><span>${dmy(D.dias[i]).slice(0, 5)} (sem horário)</span><span>${nome}</span><span class="dur">—</span></div></div>
+    <div class="sub" style="margin-top:8px">Leitura do Relatório CFTV diário: o relatório informa a situação da câmera no dia, sem horário. Por isso não há linha do tempo, tempos nem disponibilidade neste dia.</div>`;
+}
+
 function notaCobertura(i) {
   const c = D.cobertura?.[i];
+  if (c && !c.inicio) return '<div class="sub" style="margin-top:8px">Sem registros com horário neste dia.</div>';
   return c && c.horas < 24 ? `<div class="sub" style="margin-top:8px">Dia parcial na extração: dados de ${c.inicio.slice(11, 16)} a ${c.fim.slice(11, 16)}. O restante aparece como Sem conexão.</div>` : '';
 }
 

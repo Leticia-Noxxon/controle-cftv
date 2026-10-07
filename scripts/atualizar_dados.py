@@ -11,7 +11,7 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from pipeline import analise, config, garagens, manutencao, monitoramento  # noqa: E402
+from pipeline import analise, config, garagens, manutencao, monitoramento, relatorio_diario  # noqa: E402
 
 BIT = config.BIT_CAMERA
 
@@ -102,10 +102,16 @@ def main(reusar=False):
         carga = monitoramento.carregar(con)
         print('carga:', json.dumps(carga, default=str, ensure_ascii=False))
         arq_carga.write_text(json.dumps(carga, default=str, ensure_ascii=False, indent=1), encoding='utf-8')
+    # leituras diárias sem horário (Relatório CFTV, decisão de 07/10/2026): montadas antes de agregar
+    leituras = relatorio_diario.carregar(con)
+    print('leituras diárias (sem horário):', json.dumps(leituras, ensure_ascii=False))
     if not (reusar and {'reg3', 'camera_dia', 'intervalo', 'trecho', 'tempo_camera_dia'} <= tabelas):
         monitoramento.agregar(con)
     qual = monitoramento.qualidade(con)
-    cob = con.execute('SELECT * FROM cobertura_dia ORDER BY data').fetchdf()
+    # datas: as dos registros com horário + as das leituras diárias sem horário (dia sem registro com horário fica com
+    # cobertura 0 h); cobertura_dia continua só com os registros com horário
+    cob = con.execute("""SELECT d.data, coalesce(c.registros, 0) registros, coalesce(c.prefixos, 0) prefixos, c.inicio, c.fim, coalesce(c.horas, 0) horas
+        FROM (SELECT data FROM cobertura_dia UNION SELECT DISTINCT data FROM leitura_dia) d LEFT JOIN cobertura_dia c USING (data) ORDER BY d.data""").fetchdf()
     inicio, fim = con.execute('SELECT min(ts_local), max(ts_local) FROM reg3').fetchone()
     ultimo_dia = fim.date()
     # datas vêm dos dados (todas as datas com pelo menos um registro, em ordem cronológica) — nada fixo no código
@@ -136,8 +142,9 @@ def main(reusar=False):
         p = int(r.prefixo)
         frota[p] = {'p': p, 'e': emp_idx.get(r.empresa), 'g': mapa_gar.get(p), 'c': [int(c) for c in r.cameras], 'k': {}, 'l': {}, 't': None, 'mv': {}}
     tcd = con.execute("""SELECT t.prefixo, t.camera, t.data, coalesce(t.s_ok,0) s_ok, coalesce(t.s_falha,0) s_falha, coalesce(t.s_off,0) s_off, t.ultimo_codigo,
-            (CASE WHEN c.n_ok>0 THEN 1 ELSE 0 END) + (CASE WHEN c.n_falha>0 THEN 2 ELSE 0 END) + (CASE WHEN c.n_off>0 THEN 4 ELSE 0 END) m
-        FROM tempo_camera_dia t JOIN camera_dia c USING (prefixo, camera, data)""").fetchdf()
+            (CASE WHEN c.n_ok>0 THEN 1 ELSE 0 END) + (CASE WHEN c.n_falha>0 THEN 2 ELSE 0 END) + (CASE WHEN c.n_off>0 THEN 4 ELSE 0 END) m,
+            t.sem_horario
+        FROM tempo_camera_dia t JOIN camera_dia c USING (prefixo, camera, data, sem_horario)""").fetchdf()
     tcd['i'] = [di[pd.Timestamp(d).date()] for d in tcd.data]
     zero = b36(0) * 3
     por_cam = defaultdict(dict)       # camera -> prefixo -> string de tempos
@@ -150,6 +157,9 @@ def main(reusar=False):
             t[i] = b36(a / 60) + b36(b / 60) + b36(o / 60)
             x = tv[p][i]
             x[0] += a / 60; x[1] += b / 60; x[2] += o / 60
+        sh = [int(i) for i, x in zip(g.i, g.sem_horario) if x]
+        if sh:   # dias em que a câmera só tem leitura diária sem horário (Relatório CFTV)
+            frota[p].setdefault('sh', {})[c] = sh
         frota[p]['k'][c] = ''.join(k)
         frota[p]['l'][c] = ''.join(l)
         por_cam[c][p] = ''.join(t)
@@ -197,6 +207,7 @@ def main(reusar=False):
         'garagens': stats_gar['valores_distintos'], 'cameras': sorted(por_cam),
         'codec': {'base': 36, 'largura': LARG, 'valores': ['online_min', 'falha_min', 'offline_min']},
         'intervalo': {'nominal_s': config.INTERVALO_NOMINAL_S, 'lacuna_max_s': config.LACUNA_MAX_S},
+        'leituras_diarias': [{k: x[k] for k in ('data', 'arquivo', 'veiculos_com_leitura', 'leituras_usadas')} for x in leituras if x['leituras_usadas']],
         'cobertura': [{'data': pd.Timestamp(r.data).date().isoformat(), 'registros': int(r.registros), 'prefixos': int(r.prefixos),
                        'inicio': iso(r.inicio), 'fim': iso(r.fim), 'horas': int(r.horas)} for r in cob.itertuples()],
     }
@@ -221,6 +232,7 @@ def main(reusar=False):
         'carga': {k: v for k, v in carga.items() if k != 'arquivos'}, 'dias': [dias[0].isoformat(), dias[-1].isoformat(), nd],
         'garagens': {k: v for k, v in stats_gar.items() if k != 'valores_distintos'}, 'qualidade_extra': {'camera_fora_do_mapeamento': qual['camera_fora_do_mapeamento'],
         'combinacoes': qual['combinacoes_status'], 'prefixos_multiempresa': len(qual['prefixos_com_mais_de_uma_empresa'])},
+        'leituras_diarias': leituras,
         'eventos': len(eventos), 'resultado': dict(Counter(e['resultado'] for e in eventos)),
     }
     (config.PROCESSED / 'resumo_atualizacao.json').write_text(json.dumps(resumo, ensure_ascii=False, indent=1, default=str), encoding='utf-8')

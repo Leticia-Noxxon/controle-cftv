@@ -2,7 +2,7 @@
 // total, sem rolagem interna (a aba pode rolar). Veículo | Câmera, chave Manutenção, exportação Excel.
 // Clique no NOME da empresa: modal com a evolução diária; clique no resto da linha: lista de veículos.
 import { F, barraFiltros } from './main.js';
-import { ICONE, D, veiculosFiltrados, faixaDias, situacao, noCard, empresaPassa, garagemDoFormulario, camNome, dmy, fmtN, fmtP, esc, CAMS_POS, GRUPO_METROPOLE } from './dados.js';
+import { ICONE, D, veiculosFiltrados, faixaDias, situacao, noCard, empresaPassa, garagemDoFormulario, camNome, dmy, fmtN, fmtP, esc, CAMS_POS, GRUPO_METROPOLE, dataHoraU } from './dados.js';
 import { abrirGaragem, abrirModal } from './garagem.js';
 import { analisar, carregarAux } from './os.js';
 import { exportarTabela } from './xlsx.js';
@@ -218,7 +218,7 @@ async function abrirPosicao(g, cam) {
     const r = analisar(v, String(cam), A);
     const c = r.cams[cam] || {};
     const man = r.man && r.man !== '—' ? r.man : '—';
-    return { p: v.p, g: v.garagem, st: ROT_CAM[s.cams[cam]], dias: c.n || 0, u: c.uc ? `${dmy(c.uc.slice(0, 10))} ${c.uc.slice(11, 16)}` : '—', man };
+    return { p: v.p, g: v.garagem, st: ROT_CAM[s.cams[cam]], dias: c.n || 0, u: dataHoraU(c.uc), man };
   }).sort((a, b) => b.dias - a.dias || a.p - b.p);
   const curto = (t) => (t.length > 70 ? `${t.slice(0, t.lastIndexOf(' ', 70) > 40 ? t.lastIndexOf(' ', 70) : 70)}…` : t);
   const per = rotuloPeriodo(F.de, F.ate);

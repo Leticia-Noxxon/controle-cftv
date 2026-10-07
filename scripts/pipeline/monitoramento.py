@@ -173,7 +173,7 @@ def agregar(con):
       SELECT prefixo, camera, CAST(meia_noite AS DATE), meia_noite, fim_local, estado, codigo, ts_utc FROM c WHERE fim_local > meia_noite""")
     con.execute("""CREATE OR REPLACE TABLE tempo_camera_dia AS
       SELECT prefixo, camera, data, sum(epoch(fim - ini)) FILTER (WHERE estado='N') AS s_ok, sum(epoch(fim - ini)) FILTER (WHERE estado='F') AS s_falha,
-             sum(epoch(fim - ini)) FILTER (WHERE estado='O') AS s_off, arg_max(codigo, ts_utc) AS ultimo_codigo
+             sum(epoch(fim - ini)) FILTER (WHERE estado='O') AS s_off, arg_max(codigo, ts_utc) AS ultimo_codigo, FALSE AS sem_horario
       FROM intervalo GROUP BY ALL""")
     # Linha do tempo: intervalos consecutivos com o mesmo estado e sem lacuna entre eles são unidos em um trecho.
     con.execute("""CREATE OR REPLACE TABLE trecho AS
@@ -188,7 +188,8 @@ def agregar(con):
         count(*) FILTER (WHERE erro_bits & 1 > 0) n_sd, count(*) FILTER (WHERE erro_bits & 2 > 0) n_login, count(*) FILTER (WHERE erro_bits & 4 > 0) n_grav,
         bit_or(erro_bits) erro_bits, sum(transicao) transicoes,
         min(ts_local) primeiro, max(ts_local) ultimo,
-        min(ts_local) FILTER (WHERE estado<>'N') primeiro_problema, max(ts_local) FILTER (WHERE estado<>'N') ultimo_problema
+        min(ts_local) FILTER (WHERE estado<>'N') primeiro_problema, max(ts_local) FILTER (WHERE estado<>'N') ultimo_problema,
+        FALSE AS sem_horario
       FROM reg3 GROUP BY ALL""")
     con.execute("""CREATE OR REPLACE TABLE veiculo_dia AS
       SELECT prefixo, data, count(*) n,
@@ -209,9 +210,31 @@ def agregar(con):
              count(*) FILTER (WHERE estado='N') n_ok, count(*) FILTER (WHERE estado='F') n_falha, count(*) FILTER (WHERE estado='O') n_off,
              min(ts_local) primeiro, max(ts_local) ultimo
       FROM reg3 GROUP BY ALL""")
+    adicionar_leituras_diarias(con)
     con.execute("""CREATE OR REPLACE TABLE cobertura_dia AS
       SELECT data, count(*) registros, count(DISTINCT prefixo) prefixos, min(ts_local) inicio, max(ts_local) fim,
              count(DISTINCT hora) horas FROM reg3 GROUP BY 1 ORDER BY 1""")
+
+
+def adicionar_leituras_diarias(con):
+    """Leituras diárias SEM horário (Relatório CFTV; tabela leitura_dia de pipeline/relatorio_diario.py, decisão de
+    07/10/2026): entram em camera_dia (contagem do dia -> cor da Matriz) e em tempo_camera_dia (último código do dia ->
+    situação atual) com sem_horario = TRUE, sem tempos (minutos) e sem horários; não entram em reg3/intervalo/trecho
+    (linha do tempo horária) nem em cobertura_dia. Veículos sem histórico entram em 'veiculo' com a empresa do relatório.
+    A precedência (registro com horário vence) já foi aplicada ao montar leitura_dia."""
+    if not con.execute("SELECT count(*) FROM information_schema.tables WHERE table_name = 'leitura_dia'").fetchone()[0]:
+        return
+    con.execute("""INSERT INTO camera_dia BY NAME
+      SELECT prefixo, camera, data, 1 AS n, CAST(estado='N' AS INT) n_ok, CAST(estado='F' AS INT) n_falha, CAST(estado='O' AS INT) n_off,
+             CAST(erro_bits & 1 > 0 AS INT) n_sd, CAST(erro_bits & 2 > 0 AS INT) n_login, CAST(erro_bits & 4 > 0 AS INT) n_grav,
+             erro_bits, 0 AS transicoes, TRUE AS sem_horario
+      FROM leitura_dia""")
+    con.execute("""INSERT INTO tempo_camera_dia BY NAME
+      SELECT prefixo, camera, data, codigo AS ultimo_codigo, TRUE AS sem_horario FROM leitura_dia""")
+    con.execute("""INSERT INTO veiculo BY NAME
+      SELECT prefixo, any_value(empresa) empresa, list(DISTINCT empresa) empresas, list(DISTINCT camera ORDER BY camera) cameras,
+             count(*) n, count(*) FILTER (WHERE estado='N') n_ok, count(*) FILTER (WHERE estado='F') n_falha, count(*) FILTER (WHERE estado='O') n_off
+      FROM leitura_dia WHERE prefixo NOT IN (SELECT prefixo FROM veiculo) GROUP BY prefixo""")
 
 
 def qualidade(con):

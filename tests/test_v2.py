@@ -35,5 +35,10 @@ def test_os_json():
     assert set(d['v']) == {str(v['p']) for v in frota}
     for p, cams in list(d['v'].items())[:500]:
         for c, (u, m) in cams.items():
-            assert re.fullmatch(r'\d{4}-\d\d-\d\dT\d\d:\d\d', u) and m >= 0
+            # 'AAAA-MM-DD' sozinho = leitura diária sem horário do Relatório CFTV (REGRAS_PROJETO 19)
+            assert re.fullmatch(r'\d{4}-\d\d-\d\d(T\d\d:\d\d)?', u) and m >= 0
             assert u <= META['atualizacao']
+    # leituras diárias: só a data, e só para dias que estão em meta.leituras_diarias
+    dias_rel = {x['data'] for x in META.get('leituras_diarias', [])}
+    so_dia = {u for cams in d['v'].values() for u, _ in cams.values() if u and len(u) == 10}
+    assert so_dia <= dias_rel, so_dia - dias_rel

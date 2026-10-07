@@ -214,3 +214,50 @@ def test_garagem_acentuacao_corrompida_e_datas_jotform():
     assert garagens._data('{"day": "23", "month": "06", "year": "2026"}') == '2026-06-23'
     assert garagens._data('2026-06-30 12:33:00') == '2026-06-30'
     assert garagens._data('quarta-feira, setembro 16, 2026 03:11') == '2026-09-16T03:11'
+
+
+# ---------- Relatório CFTV diário sem horário (REGRAS_PROJETO 19, decisão de 07/10/2026) ----------
+from pipeline import relatorio_diario  # noqa: E402
+
+
+def _reg_rel(prefixo, empresa, cams):
+    return {'linha': 2, 'empresa': empresa, 'status': '', 'cams': cams, 'textos': {c: str(v) for c, v in cams.items()}}
+
+
+def test_relatorio_diario_reconciliacao_e_precedencia(tmp_path, monkeypatch):
+    con = duckdb.connect()
+    # histórico com horário: 100 (câm 21), 200 (câm 22,23), 300 (câm 22), 400 (câm 21) com registro em 06/10 só na câm 21
+    con.execute("""CREATE TABLE registros AS SELECT * FROM (VALUES
+      (100, 21, DATE '2026-10-05', 10, TIMESTAMP '2026-10-05 13:00', 'EMP A', 'bq-results-1.csv'),
+      (200, 22, DATE '2026-10-05', 10, TIMESTAMP '2026-10-05 13:00', 'EMP B', 'bq-results-1.csv'),
+      (200, 23, DATE '2026-10-05', 10, TIMESTAMP '2026-10-05 13:00', 'EMP B', 'bq-results-1.csv'),
+      (300, 22, DATE '2026-10-05', 10, TIMESTAMP '2026-10-05 13:00', 'EMP C', 'bq-results-1.csv'),
+      (400, 21, DATE '2026-10-06', 9, TIMESTAMP '2026-10-06 12:00', 'EMP D', 'x-painel_06.csv'),
+      (400, 22, DATE '2026-10-05', 9, TIMESTAMP '2026-10-05 12:00', 'EMP D', 'bq-results-1.csv')
+    ) t(prefixo, camera, data, hora, ts_utc, empresa, arquivo)""")
+    rel = {'arquivo': 'Relatório CFTV - 06.10.2026.xlsx', 'aba': 'x', 'abas': ['x'], 'data': '2026-10-06', 'registros': {
+        100: _reg_rel(100, 'EMP A', {21: 'O', 22: '-'}),          # contida no histórico -> como está
+        200: _reg_rel(200, 'EMP B', {21: 'N', 22: '1'}),          # mesma quantidade -> 21→22, 22→23 (regra 3-A)
+        300: _reg_rel(300, 'EMP C', {21: 'N', 22: 'N'}),          # quantidade diferente -> pendente
+        500: _reg_rel(500, ' emp  a ', {21: 'N'}),                # sem histórico, empresa conhecida -> novo
+        600: _reg_rel(600, 'EMPRESA NOVA', {21: 'N'}),            # sem histórico, empresa desconhecida -> pendente
+        400: _reg_rel(400, 'EMP D', {21: 'O', 22: 'N'}),          # câm 21 tem registro com horário no dia -> substituída
+        700: _reg_rel(700, 'EMP A', {21: '-', 22: '.'}),          # sem câmeras
+    }}
+    monkeypatch.setattr(relatorio_diario.relatorio, 'ler', lambda: [rel])
+    monkeypatch.setattr(config, 'PROCESSED', tmp_path)
+    [r] = relatorio_diario.carregar(con)
+    assert (r['remapeados'], r['novos'], r['pendentes'], r['sem_cameras']) == (1, 1, 2, 1)
+    assert r['substituidas_mesma_camera'] == 1 and r['substituidas_dia_coberto'] == 0
+    usadas = con.execute('SELECT prefixo, camera, codigo, estado, erro_bits, empresa, origem FROM leitura_dia ORDER BY ALL').fetchall()
+    assert usadas == [(100, 21, 'O', 'O', 0, 'EMP A', 'relatorio_diario'), (200, 22, 'N', 'N', 0, 'EMP B', 'relatorio_diario'),
+                      (200, 23, '1', 'F', 1, 'EMP B', 'relatorio_diario'), (400, 22, 'N', 'N', 0, 'EMP D', 'relatorio_diario'),
+                      (500, 21, 'N', 'N', 0, 'EMP A', 'relatorio_diario')]
+    pend = pd.read_csv(tmp_path / 'leituras_diarias_pendentes.csv')
+    assert sorted(pend['prefixo']) == [300, 600]
+    # exportação futura do BigQuery cobrindo o dia inteiro (24 horas) substitui todas as leituras do relatório
+    con.execute("""INSERT INTO registros SELECT 999, 21, DATE '2026-10-06', h, TIMESTAMP '2026-10-06 03:00' + h * INTERVAL 1 HOUR, 'EMP A',
+                   'bq-results-2.csv' FROM range(24) t(h)""")
+    [r] = relatorio_diario.carregar(con)
+    assert r['leituras_usadas'] == 0 and r['substituidas_dia_coberto'] == 6
+    assert con.execute('SELECT count(*) FROM leitura_dia').fetchone()[0] == 0
