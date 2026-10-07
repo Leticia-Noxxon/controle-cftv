@@ -132,6 +132,38 @@ def test_converter_xlsx_bq(tmp_path):
         '2026-10-01 11:00:00 UTC,1,100,9,EMP & <X>,1002,1,,,offline,,,']
 
 
+def test_converter_painel_cameras(tmp_path):
+    import csv
+    import openpyxl
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
+    import converter_painel_cameras as cp
+    def planilha(nome, linhas):
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = 'Manutenção Câmeras'
+        ws.append(['Prefixo', 'Placa', 'Operadora', 'Câmera', 'Status', 'SD', 'Login', 'Gravação', 'Última Transmissão'])
+        for l in linhas:
+            ws.append(l)
+        wb.save(tmp_path / nome)
+        return tmp_path / nome
+    a = planilha('a.xlsx', [['100', 'AAA1', 'EMP X ', 'FRONTAL', 'ONLINE', 'ok', 'ok', 'ok', '07/10/2026, 11:31:31'],
+                            ['100', 'AAA1', 'EMP X ', 'CORREDOR ', 'OFFLINE', '-', '-', '-', '07/10/2026, 11:31:35'],
+                            ['200', 'BBB2', 'EMP X ', 'CORREDOR 2', 'ONLINE', 'error', 'ok', 'error', '06/10/2026, 23:10:00'],   # 24 não existe no BigQuery
+                            ['300', 'CCC3', 'EMP X ', 'FRENTE', 'ONLINE', 'ok', 'ok', 'ok', '07/10/2026, 10:00:00'],
+                            ['300', 'CCC3', 'EMP X ', 'FRENTE ', 'OFFLINE', '-', '-', '-', '07/10/2026, 10:00:04']])          # posição repetida
+    b = planilha('b.xlsx', [])
+    b2 = planilha('b2.xlsx', [])
+    out = tmp_path / 'raw'
+    r = cp.converter([a, b, b2], out, ref={100: {1001, 1002, 1003}, 200: {1001}, 300: {1001, 1002}})
+    assert r[0]['registros'] == 2 and r[0]['pendentes'] == 3 and r[0]['veiculos_pendentes'] == 2
+    assert r[2] == {'arquivo': 'b2.xlsx', 'identico_a': 'b.xlsx'}
+    linhas = list(csv.DictReader(open(out / r[0]['csv'], encoding='utf-8')))
+    assert [(l['timestamp'], l['prefixo_veiculo'], l['id_camera'], l['status'], l['sdcard'], l['empresa'], l['linha_planilha']) for l in linhas] == [
+        ('2026-10-07 14:31:31 UTC', '100', '1001', 'ONLINE', 'ok', 'EMP X ', '2'),        # Brasília -> UTC; valores mantidos
+        ('2026-10-07 14:31:35 UTC', '100', '1003', 'OFFLINE', '-', 'EMP X ', '3')]        # "CORREDOR" sozinho = CORREDOR 1 (23)
+    assert r[0]['csv'].startswith('bq-results-20261007-113135-painel_')
+
+
 def test_intervalos_lacuna_e_meia_noite(tmp_path, monkeypatch):
     # 22:30, 23:30 BRT (=01:30, 02:30 UTC) e 03:30 BRT do dia seguinte (lacuna de 4 h)
     a = CAB + ('2026-09-26 01:30:00 UTC,1,100,9,E,1001,s,,,online,ok,ok,ok\n'

@@ -1,26 +1,37 @@
 {
  "carga": {
-  "registros_brutos": 11459402,
+  "registros_brutos": 11466276,
   "registros_por_arquivo": {
    "bq-results-20260928-132402-1790601858542.csv": 5273675,
    "bq-results-20260928-132836-1790602131240.csv": 3569548,
    "bq-results-20260930-020631-1790734004968.csv": 1567604,
-   "bq-results-20261005-142450-1791_xlsx_cftv_28-09_ate-05-10.csv": 1048575
+   "bq-results-20261005-142450-1791_xlsx_cftv_28-09_ate-05-10.csv": 1048575,
+   "bq-results-20261007-112509-painel_manutencao-cameras-cftv(3).csv": 648,
+   "bq-results-20261007-114137-painel_manutencao-cameras-cftv.csv": 629,
+   "bq-results-20261007-114150-painel_manutencao-cameras-cftv(2).csv": 177,
+   "bq-results-20261007-114201-painel_manutencao-cameras-cftv(1).csv": 210,
+   "bq-results-20261007-114240-painel_manutencao-cameras-cftv(4).csv": 281,
+   "bq-results-20261007-114307-painel_manutencao-cameras-cftv(6).csv": 354,
+   "bq-results-20261007-114415-painel_manutencao-cameras-cftv(5).csv": 687,
+   "bq-results-20261007-114448-painel_manutencao-cameras-cftv(7).csv": 720,
+   "bq-results-20261007-114522-painel_manutencao-cameras-cftv(8).csv": 1185,
+   "bq-results-20261007-114611-painel_manutencao-cameras-cftv(11).csv": 1257,
+   "bq-results-20261007-114612-painel_manutencao-cameras-cftv(10).csv": 726
   },
   "duplicados_identicos": 281,
   "descartados_sem_chave": 0,
-  "registros_validos": 11459121,
+  "registros_validos": 11465995,
   "chaves_com_mais_de_um_registro": 280,
   "chaves_conflitantes": 0,
   "removidos_na_deduplicacao": 281,
-  "prefixos": 5616,
+  "prefixos": 5617,
   "inicio": "2026-08-31 21:00:00.283000",
-  "fim": "2026-10-05 11:24:50.428000"
+  "fim": "2026-10-07 11:46:12"
  },
  "dias": [
   "2026-08-31",
-  "2026-10-05",
-  36
+  "2026-10-07",
+  38
  ],
  "garagens": {
   "linhas_lidas_por_fonte": {
@@ -50,7 +61,7 @@
     "ok",
     "ok",
     "N",
-    9282627
+    9288217
    ],
    [
     "offline",
@@ -58,7 +69,7 @@
     null,
     null,
     "O",
-    1395658
+    1396467
    ],
    [
     "online",
@@ -66,7 +77,7 @@
     "ok",
     "error",
     "5",
-    780835
+    781310
    ],
    [
     "online",
@@ -77,15 +88,15 @@
     1
    ]
   ],
-  "prefixos_multiempresa": 55
+  "prefixos_multiempresa": 57
  },
  "eventos": 661,
  "resultado": {
   "Sem dados para avaliar": 180,
   "Resolvido com recorrência": 118,
-  "Resolvido": 75,
+  "Resolvido": 76,
   "Sem problema antes": 177,
   "Parcialmente resolvido": 34,
-  "Não resolvido": 77
+  "Não resolvido": 76
  }
 }

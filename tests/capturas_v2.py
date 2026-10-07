@@ -196,8 +196,8 @@ with sync_playwright() as p:
     m = {k: num(total(pg, k)) for k in ['ma', 'mr', 'mp', 'ms', 'mi']}
     print('      manutenção (total):', m)
     ok(cabecalhos(pg)[-5:] == ['Atendidos', 'Reincidências', 'Procedentes', 'Solucionados', 'Improcedentes'], 'cabeçalhos curtos de manutenção')
-    # retrato dos dados de 31/08 a 05/10/2026 11:24 (Solucionados depende do monitoramento depois da visita: era 71 com dados até 28/09)
-    ok((m['ma'], m['mr'], m['mp'], m['ms']) == (595, 64, 282, 74), 'totais de manutenção 595 / 64 / 282 / 74')
+    # retrato dos dados de 31/08 a 07/10/2026 11:46 (Solucionados depende do monitoramento depois da visita: 71 com dados até 28/09, 74 até 05/10)
+    ok((m['ma'], m['mr'], m['mp'], m['ms']) == (595, 64, 282, 75), 'totais de manutenção 595 / 64 / 282 / 75')
     ok(0 < m['mi'] <= m['ma'] - m['mp'], f'Improcedentes coerente ({m["mi"]})')
     ok(all(pg.get_attribute(f'#v-tabela th[data-o="{k}"]', 'data-tip') for k in ['ma', 'mr', 'mp', 'ms', 'mi']), 'dicas nos cabeçalhos de manutenção')
     ok('MANUTENÇÃO' in pg.inner_text('#v-tabela .tr-grupo').upper(), 'grupo Manutenção')
