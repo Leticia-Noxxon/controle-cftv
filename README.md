@@ -134,6 +134,7 @@ https://leticia-noxxon.github.io/controle-cftv/ (raiz) tem identidade visual pr�
   - **Filtro de status**, múltiplo; os chips também servem de legenda: Funcional, 100% Offline, Erro de SD, 1+ câm. com problema, Sem conexão e Manutenção. Ficam os veículos com pelo menos um dia no mês com algum dos status marcados.
   - **Com uma câmera escolhida,** as células, a dica e o painel de detalhe mostram só essa câmera. As manutenções também se limitam às que citam a câmera ou não informam câmera.
   - A matriz ocupa a altura toda, com rolagem virtual, ponto azul de manutenção e painel de detalhe.
+  - **Mês sempre completo:** a matriz mostra todos os dias do mês escolhido, então o mês atual fica do mesmo tamanho de um mês fechado. Um dia sem arquivo de dados (dia futuro ou sem extração) aparece como coluna vazia: cabeçalho esmaecido e célula só com contorno tracejado, sem cor. Isso é diferente de "Sem conexão" (cinza), que é um dia com arquivo em que o veículo não teve registro. Essas colunas não têm dica nem clique e não contam no filtro de status, na disponibilidade nem na OS. Decisão da Letícia em 07/10/2026; vale para a raiz e para /v2/ (o /v1/ não tem visão por mês).
 - **OS (Ordem de Serviço, .xlsx):** gerada no navegador pelo botão **OS** (ExcelJS, carregado só na hora).
   - **Filtros:** Empresa, Câmera e Problema. O Problema segue a mesma partição da Visão geral; o padrão é 1+ câmera com problema, Erro de SD e 100% Offline.
   - **Planilha:** uma aba só, e a tabela começa na linha 1.

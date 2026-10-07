@@ -17,6 +17,6 @@ Herdadas do projeto anterior (`analise-cftv-manutencoes`) e adaptadas ao monitor
 13. Distinguir dias corridos de dias com dado/registros.
 14. Não publicar IP de envio nem dados brutos; documentar premissas no README.
 15. Interface em português do Brasil; duas páginas (Monitoramento e Estatísticas) sem recarregar; sem barra lateral, ícone de câmera ou emoji; fonte Inter; paleta e tamanhos definidos em `site/src/style.css`; definições ficam no README.
-16. Datas da tabela sempre vindas dos dados; novos CSVs passam pela normalização e pela deduplicação por prefixo + câmera + data/hora.
+16. Datas da tabela sempre vindas dos dados (exceção de layout: na Matriz por mês, os dias do mês sem arquivo aparecem como colunas vazias e neutras, sem status, só para manter o tamanho do mês — decisão de 07/10/2026); novos CSVs passam pela normalização e pela deduplicação por prefixo + câmera + data/hora.
 17. Linha do tempo respeita a resolução da coleta (~1 h): registro vale até o próximo (≤ 65 min) ou 60 min; lacunas = Sem dados; disponibilidade = online ÷ tempo monitorado (sem “Sem dados”).
 18. Garagem: valor válido mais recente entre todas as fontes, conflitos registrados; sem fonte = “Não informado”; nunca deduzir da empresa.

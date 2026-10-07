@@ -17,7 +17,7 @@ const STATUS = [
 ];
 // Rolagem virtual: só as linhas visíveis + BUFFER acima/abaixo são desenhadas; espaçadores mantêm a altura total.
 const BUFFER = 12;
-const V = { linhas: [], dias: [], ini: -1, fim: -1, raf: 0 };
+const V = { linhas: [], dias: [], cols: [], ini: -1, fim: -1, raf: 0 };
 let memo = { key: '', linhas: [] };
 let host = null;
 const filtroM = () => ({ empresa: F.empresa, camera: F.camera, prefixo: '', mes: F.mes });
@@ -69,17 +69,38 @@ function atualizar() {
   tabela(linhas, dias);
 }
 
+// Colunas da grade: com um mês escolhido, sempre todos os dias do mês (mesmo tamanho de um mês completo).
+// Dia com dados = índice em D.dias; dia sem dados (futuro ou sem extração) = data 'AAAA-MM-DD' → coluna vazia,
+// neutra (sem cor, sem clique), que não entra em filtro, disponibilidade nem OS.
+function colunasMes(dias) {
+  if (!F.mes || !dias.length) return dias;
+  const [a, m] = F.mes.split('-').map(Number);
+  const n = new Date(Date.UTC(a, m, 0)).getUTCDate();
+  const idx = new Map(dias.map((i) => [D.dias[i], i]));
+  const out = [];
+  for (let d = 1; d <= n; d += 1) {
+    const iso = `${F.mes}-${String(d).padStart(2, '0')}`;
+    out.push(idx.has(iso) ? idx.get(iso) : iso);
+  }
+  return out;
+}
+const vazia = (c) => typeof c === 'string';
+const TIP_VAZIO = 'Sem arquivo de dados para este dia (dia futuro ou sem extração)';
+
 function tabela(linhas, dias) {
   const el = document.getElementById('m-tabela');
   const n = linhas.length;
-  V.linhas = linhas; V.dias = dias; V.ini = -1; V.fim = -1;
+  const colsD = colunasMes(dias);
+  V.linhas = linhas; V.dias = dias; V.cols = colsD; V.ini = -1; V.fim = -1;
   document.getElementById('m-cont').textContent = `${fmtN(n)} ${n === 1 ? 'veículo' : 'veículos'}`;
   if (!n || !dias.length) { el.innerHTML = '<div class="vazio">Nenhum veículo para os filtros.</div>'; el.onscroll = null; return; }
-  const cols = `var(--w1) var(--w2) var(--w3) repeat(${dias.length}, minmax(var(--col-dia), 1fr))`;
+  const cols = `var(--w1) var(--w2) var(--w3) repeat(${colsD.length}, minmax(var(--col-dia), 1fr))`;
   const seta = (k) => `<span class="seta">${S.ord.k === k ? (S.ord.dir > 0 ? '↑' : '↓') : ''}</span>`;
   const cab = `<div class="cel-h fx fx1 ord" data-o="garagem">Empresa${seta('garagem')}</div><div class="cel-h fx fx2 ord" data-o="prefixo">Prefixo${seta('prefixo')}</div><div class="cel-h fx fx3 ord" data-o="disp" title="Disponibilidade no mês: tempo funcional ÷ tempo monitorado">Disp.${seta('disp')}</div>`
-    + dias.map((i) => `<div class="cel-h dia-h"><b>${D.dias[i].slice(8, 10)}</b><span>${diaSemana(D.dias[i])}</span></div>`).join('');
-  el.innerHTML = `<div class="grade" style="grid-template-columns:${cols};min-width:calc(var(--w1) + var(--w2) + var(--w3) + ${dias.length} * var(--col-dia))">${cab}<div class="esp" id="m-esp1"></div><div class="linhas-v" id="m-corpo"></div><div class="esp" id="m-esp2"></div></div>`;
+    + colsD.map((c) => (vazia(c)
+      ? `<div class="cel-h dia-h dia-vazio" title="${TIP_VAZIO}"><b>${c.slice(8, 10)}</b><span>${diaSemana(c)}</span></div>`
+      : `<div class="cel-h dia-h"><b>${D.dias[c].slice(8, 10)}</b><span>${diaSemana(D.dias[c])}</span></div>`)).join('');
+  el.innerHTML = `<div class="grade" style="grid-template-columns:${cols};min-width:calc(var(--w1) + var(--w2) + var(--w3) + ${colsD.length} * var(--col-dia))">${cab}<div class="esp" id="m-esp1"></div><div class="linhas-v" id="m-corpo"></div><div class="esp" id="m-esp2"></div></div>`;
   el.scrollTop = 0;
   el.querySelectorAll('.ord').forEach((h) => h.addEventListener('click', () => {
     const k = h.dataset.o; S.ord = { k, dir: S.ord.k === k ? -S.ord.dir : 1 }; atualizar();
@@ -107,7 +128,8 @@ function desenharVisiveis(forcar = false) {
   corpo.innerHTML = V.linhas.slice(ini, fim).map((r) => {
     const v = r.v;
     return `<div class="linha" data-p="${v.p}"><div class="cel fx fx1" title="${esc(v.garagem)}">${esc(v.garagem)}</div><div class="cel fx fx2">${v.p}</div><div class="cel fx fx3 disp">${fmtP(r.disp)}</div>`
-      + V.dias.map((i) => {
+      + V.cols.map((i) => {
+        if (vazia(i)) return '<div class="cel dia-c"><div class="st-vazio" aria-hidden="true"></div></div>';
         const e = estadoDia(v, i, cam);
         const sel = S.sel && S.sel.p === v.p && S.sel.i === i ? ' sel' : '';
         return `<div class="cel dia-c"><div class="st ${e}${sel}" data-i="${i}">${manutDia(v, i, cam).length ? '<span class="man"></span>' : ''}</div></div>`;

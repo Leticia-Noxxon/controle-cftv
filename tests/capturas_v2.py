@@ -330,6 +330,18 @@ with sync_playwright() as p:
     ok(pg.evaluate("document.getElementById('upd').getBoundingClientRect().top >= document.querySelector('.app').getBoundingClientRect().bottom - 0.5"), 'Matriz: última atualização fora do conteúdo')
     meses = sorted({d[:7] for d in meta['dias']})
     ok(pg.input_value('#f-mes') == meses[-1], f'Mês padrão = {meses[-1]}')
+    # mês atual com o mesmo tamanho de um mês completo: todos os dias do mês; dias sem arquivo = coluna vazia neutra
+    import calendar as _cal
+    _a, _m = map(int, meses[-1].split('-'))
+    n_mes = _cal.monthrange(_a, _m)[1]
+    n_com = len([d for d in meta['dias'] if d.startswith(meses[-1])])
+    n_cab = len(pg.query_selector_all('#m-tabela .cel-h.dia-h'))
+    n_vaz = len(pg.query_selector_all('#m-tabela .cel-h.dia-vazio'))
+    ok(n_cab == n_mes and n_vaz == n_mes - n_com, f'Matriz {meses[-1]}: {n_cab} colunas de dia ({n_com} com dados, {n_vaz} vazias)')
+    if n_vaz:
+        fundo = pg.eval_on_selector('#m-tabela .st-vazio', 'e => getComputedStyle(e).backgroundColor')
+        ok(fundo in ('rgba(0, 0, 0, 0)', 'transparent') and pg.query_selector('#m-tabela .st-vazio.nd, #m-tabela .dia-c .st-vazio .man') is None, f'dias sem arquivo sem cor (≠ Sem conexão): {fundo}')
+    pg.screenshot(path=str(out / f'{pref}_5a_matriz_mes_atual.png'))
     chips = pg.inner_text('#m-status')
     ok(all(x in chips for x in ['Funcional', '100% Offline', 'Erro de SD', '1+ câm. com problema', 'Sem conexão', 'Manutenção']), 'filtro de status com os 6 itens')
     cores_st = pg.evaluate("() => Object.fromEntries(['on','off','sd','fa','nd'].map((k) => { const e = document.querySelector('#m-tabela .st.' + k); return [k, e ? getComputedStyle(e).backgroundColor : null]; }))")
