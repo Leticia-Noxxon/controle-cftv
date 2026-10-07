@@ -77,7 +77,9 @@
    "placa",
    "camera_painel",
    "ultima_transmissao_painel",
-   "linha_planilha"
+   "linha_planilha",
+   "id_camera_painel",
+   "reconciliacao"
   ],
   "bq-results-20261007-114137-painel_manutencao-cameras-cftv.csv": [
    "timestamp",
@@ -96,7 +98,9 @@
    "placa",
    "camera_painel",
    "ultima_transmissao_painel",
-   "linha_planilha"
+   "linha_planilha",
+   "id_camera_painel",
+   "reconciliacao"
   ],
   "bq-results-20261007-114150-painel_manutencao-cameras-cftv(2).csv": [
    "timestamp",
@@ -115,7 +119,9 @@
    "placa",
    "camera_painel",
    "ultima_transmissao_painel",
-   "linha_planilha"
+   "linha_planilha",
+   "id_camera_painel",
+   "reconciliacao"
   ],
   "bq-results-20261007-114201-painel_manutencao-cameras-cftv(1).csv": [
    "timestamp",
@@ -134,7 +140,9 @@
    "placa",
    "camera_painel",
    "ultima_transmissao_painel",
-   "linha_planilha"
+   "linha_planilha",
+   "id_camera_painel",
+   "reconciliacao"
   ],
   "bq-results-20261007-114240-painel_manutencao-cameras-cftv(4).csv": [
    "timestamp",
@@ -153,7 +161,9 @@
    "placa",
    "camera_painel",
    "ultima_transmissao_painel",
-   "linha_planilha"
+   "linha_planilha",
+   "id_camera_painel",
+   "reconciliacao"
   ],
   "bq-results-20261007-114307-painel_manutencao-cameras-cftv(6).csv": [
    "timestamp",
@@ -172,7 +182,9 @@
    "placa",
    "camera_painel",
    "ultima_transmissao_painel",
-   "linha_planilha"
+   "linha_planilha",
+   "id_camera_painel",
+   "reconciliacao"
   ],
   "bq-results-20261007-114415-painel_manutencao-cameras-cftv(5).csv": [
    "timestamp",
@@ -191,7 +203,9 @@
    "placa",
    "camera_painel",
    "ultima_transmissao_painel",
-   "linha_planilha"
+   "linha_planilha",
+   "id_camera_painel",
+   "reconciliacao"
   ],
   "bq-results-20261007-114448-painel_manutencao-cameras-cftv(7).csv": [
    "timestamp",
@@ -210,7 +224,9 @@
    "placa",
    "camera_painel",
    "ultima_transmissao_painel",
-   "linha_planilha"
+   "linha_planilha",
+   "id_camera_painel",
+   "reconciliacao"
   ],
   "bq-results-20261007-114522-painel_manutencao-cameras-cftv(8).csv": [
    "timestamp",
@@ -229,7 +245,9 @@
    "placa",
    "camera_painel",
    "ultima_transmissao_painel",
-   "linha_planilha"
+   "linha_planilha",
+   "id_camera_painel",
+   "reconciliacao"
   ],
   "bq-results-20261007-114611-painel_manutencao-cameras-cftv(11).csv": [
    "timestamp",
@@ -248,7 +266,9 @@
    "placa",
    "camera_painel",
    "ultima_transmissao_painel",
-   "linha_planilha"
+   "linha_planilha",
+   "id_camera_painel",
+   "reconciliacao"
   ],
   "bq-results-20261007-114612-painel_manutencao-cameras-cftv(10).csv": [
    "timestamp",
@@ -267,20 +287,22 @@
    "placa",
    "camera_painel",
    "ultima_transmissao_painel",
-   "linha_planilha"
+   "linha_planilha",
+   "id_camera_painel",
+   "reconciliacao"
   ]
  },
- "registros_brutos": 11466276,
+ "registros_brutos": 11466385,
  "registros_por_arquivo": {
   "bq-results-20260928-132402-1790601858542.csv": 5273675,
   "bq-results-20260928-132836-1790602131240.csv": 3569548,
   "bq-results-20260930-020631-1790734004968.csv": 1567604,
   "bq-results-20261005-142450-1791_xlsx_cftv_28-09_ate-05-10.csv": 1048575,
-  "bq-results-20261007-112509-painel_manutencao-cameras-cftv(3).csv": 648,
-  "bq-results-20261007-114137-painel_manutencao-cameras-cftv.csv": 629,
-  "bq-results-20261007-114150-painel_manutencao-cameras-cftv(2).csv": 177,
+  "bq-results-20261007-112509-painel_manutencao-cameras-cftv(3).csv": 735,
+  "bq-results-20261007-114137-painel_manutencao-cameras-cftv.csv": 645,
+  "bq-results-20261007-114150-painel_manutencao-cameras-cftv(2).csv": 180,
   "bq-results-20261007-114201-painel_manutencao-cameras-cftv(1).csv": 210,
-  "bq-results-20261007-114240-painel_manutencao-cameras-cftv(4).csv": 281,
+  "bq-results-20261007-114240-painel_manutencao-cameras-cftv(4).csv": 284,
   "bq-results-20261007-114307-painel_manutencao-cameras-cftv(6).csv": 354,
   "bq-results-20261007-114415-painel_manutencao-cameras-cftv(5).csv": 687,
   "bq-results-20261007-114448-painel_manutencao-cameras-cftv(7).csv": 720,
@@ -290,7 +312,7 @@
  },
  "duplicados_identicos": 281,
  "descartados_sem_chave": 0,
- "registros_validos": 11465995,
+ "registros_validos": 11466104,
  "chaves_com_mais_de_um_registro": 280,
  "chaves_conflitantes": 0,
  "removidos_na_deduplicacao": 281,

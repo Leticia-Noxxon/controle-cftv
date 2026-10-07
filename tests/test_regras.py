@@ -150,17 +150,29 @@ def test_converter_painel_cameras(tmp_path):
                             ['100', 'AAA1', 'EMP X ', 'CORREDOR ', 'OFFLINE', '-', '-', '-', '07/10/2026, 11:31:35'],
                             ['200', 'BBB2', 'EMP X ', 'CORREDOR 2', 'ONLINE', 'error', 'ok', 'error', '06/10/2026, 23:10:00'],   # 24 não existe no BigQuery
                             ['300', 'CCC3', 'EMP X ', 'FRENTE', 'ONLINE', 'ok', 'ok', 'ok', '07/10/2026, 10:00:00'],
-                            ['300', 'CCC3', 'EMP X ', 'FRENTE ', 'OFFLINE', '-', '-', '-', '07/10/2026, 10:00:04']])          # posição repetida
+                            ['300', 'CCC3', 'EMP X ', 'FRENTE ', 'OFFLINE', '-', '-', '-', '07/10/2026, 10:00:04'],           # posição repetida
+                            ['400', 'DDD4', 'EMP X ', 'FRENTE', 'ONLINE', 'ok', 'ok', 'ok', '07/10/2026, 10:00:00'],
+                            ['400', 'DDD4', 'EMP X ', 'CORREDOR', 'ONLINE', 'ok', 'ok', 'ok', '07/10/2026, 10:00:00'],          # 2 leituras × 1 câmera
+                            ['500', 'EEE5', 'EMP X ', 'FRONTAL', 'ONLINE', 'ok', 'ok', 'ok', '07/10/2026, 10:00:00'],
+                            ['500', 'EEE5', 'EMP X ', 'FRONTAL', 'ONLINE', 'ok', 'ok', 'ok', '07/10/2026, 10:00:01']])         # repetida, sem histórico
     b = planilha('b.xlsx', [])
     b2 = planilha('b2.xlsx', [])
     out = tmp_path / 'raw'
-    r = cp.converter([a, b, b2], out, ref={100: {1001, 1002, 1003}, 200: {1001}, 300: {1001, 1002}})
-    assert r[0]['registros'] == 2 and r[0]['pendentes'] == 3 and r[0]['veiculos_pendentes'] == 2
+    r = cp.converter([a, b, b2], out, ref={100: {1001, 1002, 1003}, 200: {1001}, 300: {1001, 1002}, 400: {1001}})
+    # decisão 07/10/2026: mesma quantidade -> posições ajustadas ao histórico; quantidade diferente/sem histórico -> pendente
+    assert r[0]['registros'] == 5 and r[0]['remapeados'] == 3 and r[0]['veiculos_remapeados'] == 2
+    assert r[0]['pendentes'] == 4 and r[0]['veiculos_pendentes'] == 2
+    pend = list(csv.DictReader(open(out / 'painel_pendentes' / r[0]['csv'].replace('bq-results-', 'pendentes-'), encoding='utf-8')))
+    assert {l['prefixo_veiculo']: l['motivo'][:25] for l in pend} == {'400': 'quantidade diferente do h', '500': 'mesma posição repetida no'}
     assert r[2] == {'arquivo': 'b2.xlsx', 'identico_a': 'b.xlsx'}
     linhas = list(csv.DictReader(open(out / r[0]['csv'], encoding='utf-8')))
-    assert [(l['timestamp'], l['prefixo_veiculo'], l['id_camera'], l['status'], l['sdcard'], l['empresa'], l['linha_planilha']) for l in linhas] == [
-        ('2026-10-07 14:31:31 UTC', '100', '1001', 'ONLINE', 'ok', 'EMP X ', '2'),        # Brasília -> UTC; valores mantidos
-        ('2026-10-07 14:31:35 UTC', '100', '1003', 'OFFLINE', '-', 'EMP X ', '3')]        # "CORREDOR" sozinho = CORREDOR 1 (23)
+    assert [(l['timestamp'], l['prefixo_veiculo'], l['id_camera'], l['status'], l['sdcard'], l['empresa'], l['linha_planilha'], l['id_camera_painel']) for l in linhas] == [
+        ('2026-10-07 14:31:31 UTC', '100', '1001', 'ONLINE', 'ok', 'EMP X ', '2', '1001'),        # Brasília -> UTC; valores mantidos
+        ('2026-10-07 14:31:35 UTC', '100', '1003', 'OFFLINE', '-', 'EMP X ', '3', '1003'),        # "CORREDOR" sozinho = CORREDOR 1 (23)
+        ('2026-10-07 02:10:00 UTC', '200', '1001', 'ONLINE', 'error', 'EMP X ', '4', '1004'),     # CORREDOR 2 -> única câmera do histórico
+        ('2026-10-07 13:00:00 UTC', '300', '1001', 'ONLINE', 'ok', 'EMP X ', '5', '1002'),        # FRENTE repetida -> 1001 e 1002, em ordem
+        ('2026-10-07 13:00:04 UTC', '300', '1002', 'OFFLINE', '-', 'EMP X ', '6', '1002')]
+    assert linhas[2]['camera_painel'] == 'CORREDOR 2' and '1004→1001' in linhas[2]['reconciliacao'] and linhas[0]['reconciliacao'] == ''
     assert r[0]['csv'].startswith('bq-results-20261007-113135-painel_')
 
 

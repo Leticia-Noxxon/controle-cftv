@@ -10,10 +10,16 @@ Posição -> câmera (mapeamento confirmado, REGRAS_PROJETO 3): FRONTAL 1001 (21
 Sem id_veiculo, id_empresa e serial_modulo (o painel não traz). Placa, posição e horário originais vão em colunas extras
 (placa, camera_painel, ultima_transmissao_painel, linha_planilha), que a carga ignora.
 
-Conflito com o que já foi carregado do BigQuery (não se adivinha): se o veículo tem no painel uma posição que não existe
-entre as câmeras dele no BigQuery, ou a mesma posição repetida, as linhas do veículo NÃO entram na carga; vão para
-data/raw/painel_pendentes/<arquivo>.csv com o motivo. Planilhas com conteúdo idêntico a outra já convertida são puladas.
-O .xlsx original não é alterado.
+Conflito com o histórico do BigQuery (posição que não existe entre as câmeras do veículo no BigQuery, ou a mesma posição
+repetida) — decisão da Letícia em 07/10/2026 (REGRAS_PROJETO 3-A): vale o histórico. Regra determinística:
+- histórico = câmeras (id_camera) do veículo nas exportações do BigQuery;
+- mesma quantidade de leituras no painel e de câmeras no histórico -> mapeamento posicional, em ordem: as leituras
+  ordenadas por posição (FRONTAL, FRENTE, CORREDOR 1…4) e, em empate, pela linha da planilha, vão para as câmeras do
+  histórico em ordem crescente (ex.: 'CORREDOR' com histórico só 1001 -> 1001; 'FRONTAL' duas vezes com histórico
+  1001 e 1002 -> 1001 e 1002). A posição original fica em camera_painel e o id dela em id_camera_painel;
+- quantidade diferente, ou veículo sem histórico no BigQuery -> ambíguo: as linhas do veículo NÃO entram na carga e vão
+  para data/raw/painel_pendentes/<arquivo>.csv com o motivo.
+Planilhas com conteúdo idêntico a outra já convertida são puladas. O .xlsx original não é alterado.
 
 Uso: python scripts/converter_painel_cameras.py ARQ1.xlsx [ARQ2.xlsx ...]   (grava em data/raw/)
 """
@@ -32,7 +38,8 @@ from pipeline import config  # noqa: E402
 POSICAO_ID = {'FRONTAL': 1001, 'FRENTE': 1002, 'CORREDOR': 1003, 'CORREDOR 1': 1003, 'CORREDOR 2': 1004, 'CORREDOR 3': 1005, 'CORREDOR 4': 1006}
 COLUNAS = ['Prefixo', 'Placa', 'Operadora', 'Câmera', 'Status', 'SD', 'Login', 'Gravação', 'Última Transmissão']
 SAIDA = ['timestamp', 'id_veiculo', 'prefixo_veiculo', 'id_empresa', 'empresa', 'id_camera', 'serial_modulo', 'latitude', 'longitude',
-         'status', 'sdcard', 'login', 'recording', 'placa', 'camera_painel', 'ultima_transmissao_painel', 'linha_planilha']
+         'status', 'sdcard', 'login', 'recording', 'placa', 'camera_painel', 'ultima_transmissao_painel', 'linha_planilha',
+         'id_camera_painel', 'reconciliacao']
 TZ = ZoneInfo(config.TZ)
 MARCA = '-painel_'   # identifica no nome do CSV os arquivos vindos do painel
 
@@ -91,34 +98,48 @@ def converter(origens, destino=config.RAW, ref=None):
             local = dt.datetime.strptime(r['Última Transmissão'].strip(), '%d/%m/%Y, %H:%M:%S').replace(tzinfo=TZ)
             utc = local.astimezone(dt.timezone.utc)
             regs.append((n, p, POSICAO_ID[pos], utc, r))
-            por_veic.setdefault(p, []).append(POSICAO_ID[pos])
-        motivo = {}
+            por_veic.setdefault(p, []).append((POSICAO_ID[pos], n))
+        motivo, mapa = {}, {}
         for p, cams in por_veic.items():
-            if len(cams) != len(set(cams)):
-                motivo[p] = 'mesma posição repetida no painel'
-            elif p in ref and not set(cams) <= ref[p]:
-                motivo[p] = f'posição sem câmera correspondente no BigQuery (painel {sorted(cams)}, BigQuery {sorted(ref[p])})'
+            ids = [c for c, _ in cams]
+            if len(ids) == len(set(ids)) and (p not in ref or set(ids) <= ref[p]):
+                continue   # sem conflito: entra como está
+            if p not in ref:
+                motivo[p] = f'mesma posição repetida no painel {sorted(ids)} e veículo sem histórico no BigQuery'
+                continue
+            hist = sorted(ref[p])
+            if len(cams) != len(hist):
+                motivo[p] = f'quantidade diferente do histórico (painel {len(cams)} leitura(s) {sorted(ids)}, BigQuery {len(hist)} câmera(s) {hist})'
+                continue
+            for (c, n), h in zip(sorted(cams), hist):
+                mapa[n] = h
         if not regs:
             print(f'{origem.name}: sem registros -> nada a converter')
             resumo.append({'arquivo': origem.name, 'registros': 0})
             continue
         fim = max(u for _, _, _, u, _ in regs)
         nome = f'bq-results-{fim.astimezone(TZ):%Y%m%d-%H%M%S}{MARCA}{origem.stem.replace(" ", "")}.csv'
-        ok = pend = 0
+        ok = pend = remap = 0
         with open(destino / nome, 'w', newline='', encoding='utf-8') as f, \
              open(destino / 'painel_pendentes' / nome.replace('bq-results-', 'pendentes-'), 'w', newline='', encoding='utf-8') as fp:
             w, wp = csv.writer(f, lineterminator='\n'), csv.writer(fp, lineterminator='\n')
             w.writerow(SAIDA)
             wp.writerow(SAIDA + ['motivo'])
             for n, p, cid, utc, r in regs:
-                lin = [utc.strftime('%Y-%m-%d %H:%M:%S UTC'), '', r['Prefixo'].strip(), '', r['Operadora'], cid, '', '', '',
-                       r['Status'], r['SD'], r['Login'], r['Gravação'], r['Placa'], r['Câmera'], r['Última Transmissão'], n]
+                final = mapa.get(n, cid)
+                nota = '' if n not in mapa else (f'posição ajustada ao histórico do BigQuery: {cid}→{final} (decisão 07/10/2026)' if final != cid
+                                                 else f'reconciliada com o histórico do BigQuery: câmera {cid} mantida (decisão 07/10/2026)')
+                lin = [utc.strftime('%Y-%m-%d %H:%M:%S UTC'), '', r['Prefixo'].strip(), '', r['Operadora'], final, '', '', '',
+                       r['Status'], r['SD'], r['Login'], r['Gravação'], r['Placa'], r['Câmera'], r['Última Transmissão'], n, cid, nota]
                 if p in motivo:
                     wp.writerow(lin + [motivo[p]]); pend += 1
                 else:
-                    w.writerow(lin); ok += 1
-        print(f'{origem.name} -> {nome}: {ok} registros; {pend} pendentes de {len([1 for p in motivo])} veículo(s)')
-        resumo.append({'arquivo': origem.name, 'csv': nome, 'registros': ok, 'pendentes': pend, 'veiculos_pendentes': len(motivo)})
+                    w.writerow(lin); ok += 1; remap += n in mapa
+        veic_remap = len({p for _, p, _, _, _ in regs if p not in motivo and any(ln in mapa for _, ln in por_veic[p])})
+        print(f'{origem.name} -> {nome}: {ok} registros ({remap} remapeados pelo histórico, {veic_remap} veículo(s)); '
+              f'{pend} pendentes de {len(motivo)} veículo(s)')
+        resumo.append({'arquivo': origem.name, 'csv': nome, 'registros': ok, 'remapeados': remap, 'veiculos_remapeados': veic_remap,
+                       'pendentes': pend, 'veiculos_pendentes': len(motivo)})
     return resumo
 
 

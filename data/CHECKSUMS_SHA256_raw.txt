@@ -20,14 +20,14 @@ af0b1f02450a9f76fedc46e4e12058dc565e5414134864d9933613ebaa329aba  data/raw/origi
 ac8057521bc438a217a51b40f2d5da18e1c694e3110e52572da8f276db7b6245  data/raw/originais/painel/manutencao-cameras-cftv (8).xlsx
 caf0994e027db1ae6bd07974027f56b539e208d184427978c6ad88dbde184a29  data/raw/originais/painel/manutencao-cameras-cftv (9).xlsx
 6075d238abc98b365e86a20d821f0708bd428628871f03216e1790ddf6c299d2  data/raw/originais/painel/manutencao-cameras-cftv.xlsx
-cb97953195867fe40936646ae42e8736a05ecee6f8293cfd423b1b616190185f  data/raw/bq-results-20261007-112509-painel_manutencao-cameras-cftv(3).csv
-c613d280787d0acfbe61d3250d8f74c0be1805b3a751938bb488131efcec4e5d  data/raw/bq-results-20261007-114137-painel_manutencao-cameras-cftv.csv
-6fe9892e193841a696bf68563082f1bcb34eb104d3525b29fb20335cb27a3765  data/raw/bq-results-20261007-114150-painel_manutencao-cameras-cftv(2).csv
-958f18c600c212172506549ee023af4d50974acae8be34d47849d7e57ce7e53f  data/raw/bq-results-20261007-114201-painel_manutencao-cameras-cftv(1).csv
-794f50dca063be19c5a3e59688302c18d3f1f7abd81c7ade50407e566554fe0e  data/raw/bq-results-20261007-114240-painel_manutencao-cameras-cftv(4).csv
-2965090960651e730f9ccd2d0cf9415e76caff43854e5788f44c48b840f4f8b9  data/raw/bq-results-20261007-114307-painel_manutencao-cameras-cftv(6).csv
-8d772006423b9075a4038bbb6cc26110cc725f4bdaf783ce795558bcd5f24be2  data/raw/bq-results-20261007-114415-painel_manutencao-cameras-cftv(5).csv
-bfbfb7a5905d1400a87cba5808aa2005b5eaf9152314b0444418441d489cd22e  data/raw/bq-results-20261007-114448-painel_manutencao-cameras-cftv(7).csv
-5be6581881334193295a35eb7364cea3ef237afdcd64f7c9304ded79c9bf8f4f  data/raw/bq-results-20261007-114522-painel_manutencao-cameras-cftv(8).csv
-119b9988e8a48d2e36b1e49b0f9472cca3d916be640514958943a54fe6c1a135  data/raw/bq-results-20261007-114611-painel_manutencao-cameras-cftv(11).csv
-ff566e73bfc485d0e11f9094fdd1fc300c211d899741969a54e6a541f36fbdcf  data/raw/bq-results-20261007-114612-painel_manutencao-cameras-cftv(10).csv
+374fbeb296bec5a4070bdf4b4c8f9f955a09a569120a96e71a42c5e9d2f70fa3  data/raw/bq-results-20261007-112509-painel_manutencao-cameras-cftv(3).csv
+88ae0b56a85251a08f0a1894408b94c7d28695c6ae6a11460c40038e25755043  data/raw/bq-results-20261007-114137-painel_manutencao-cameras-cftv.csv
+5dae8f0d4efa97175847234bb405a3b48f8548e5d7d2bce5a971b2921165c9c9  data/raw/bq-results-20261007-114150-painel_manutencao-cameras-cftv(2).csv
+2a385654441dd4f367bd9fa8c789a55cc9a1d91907fe5e8b03c8696e887430dc  data/raw/bq-results-20261007-114201-painel_manutencao-cameras-cftv(1).csv
+31e0e87ca312f263d681eaa2a49dcdf994bbf8b8133d7d4c9f3f2bd8165f871e  data/raw/bq-results-20261007-114240-painel_manutencao-cameras-cftv(4).csv
+4f5afea9d2fd8eb663b1df2c08cecaea92d1ea7c6ab09685f89a641a968000b2  data/raw/bq-results-20261007-114307-painel_manutencao-cameras-cftv(6).csv
+ed377622cd684244c21c00b4c6842aa7fdb97ac59c937c92e49cd0c43ed2f92d  data/raw/bq-results-20261007-114415-painel_manutencao-cameras-cftv(5).csv
+36bc48a1137b49b65cc732af237b682e633acbc64b7a4471eb8a7f86404d7906  data/raw/bq-results-20261007-114448-painel_manutencao-cameras-cftv(7).csv
+e978e22176ecda6de176111e65da1e951997234666b09e41bfd0fc39714e27f8  data/raw/bq-results-20261007-114522-painel_manutencao-cameras-cftv(8).csv
+69d2a524da0e4df3a1474643775b6cf423b7bc4f233447acdc238c27ee8aa0c0  data/raw/bq-results-20261007-114611-painel_manutencao-cameras-cftv(11).csv
+8a7adebdcde29429a6ef530fc3c57da5bed5b30f4d69cdd97b318f90d8d1b770  data/raw/bq-results-20261007-114612-painel_manutencao-cameras-cftv(10).csv

@@ -5,6 +5,7 @@ Herdadas do projeto anterior (`analise-cftv-manutencoes`) e adaptadas ao monitor
 1. Nunca inventar dados; sem registro = “sem dados” (cinza), nunca offline.
 2. Nunca alterar os arquivos originais; guardar arquivo e linha de origem (rastreabilidade).
 3. Câmeras: 1001–1006 = 21–26; 21 FRONTAL, 22 FRENTE, 23 CORREDOR 1, 24 CORREDOR 2, 25 CORREDOR 3, 26 CORREDOR 4 (“Corredor” sozinho = CORREDOR 1). IDs fora disso aparecem como “sem mapeamento”.
+3-A. Posições reconciliadas com o histórico (decisão da Letícia em 07/10/2026, exceção à estabilidade das câmeras por veículo): quando uma fonte nova (painel “Manutenção Câmeras” de 06–07/10) traz posição que não existe entre as câmeras do veículo no BigQuery, vale o histórico. Mesma quantidade de leituras e de câmeras no histórico → mapeamento posicional em ordem (posição FRONTAL → CORREDOR 4, depois linha da planilha → id crescente do histórico); quantidade diferente ou sem histórico → não carrega, fica pendente com o motivo. A posição original é guardada (camera_painel, id_camera_painel).
 4. Notação C1…C6 é mostrada como o técnico escreveu, sem mapear.
 5. No Relatório CFTV diário, “-” = câmera não instalada (não conta).
 6. Horários do BigQuery em UTC → exibir sempre em Brasília; dias parciais identificados.
