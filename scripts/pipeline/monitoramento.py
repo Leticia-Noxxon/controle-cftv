@@ -47,6 +47,25 @@ def _norm_txt(col):
             f"THEN NULL ELSE trim(regexp_replace(CAST({col} AS VARCHAR), '\\s+', ' ', 'g')) END")
 
 
+def reparar_utf8(t):
+    """'TRANS UNIÃƒO' -> 'TRANS UNIÃO': texto UTF-8 que foi lido como cp1252 (ex.: CSV do BigQuery aberto no Excel e salvo
+    como .xlsx). Só aplica se o reparo for exato (o texto volta a ser UTF-8 válido); senão devolve o texto como está."""
+    if t is None:
+        return None
+    try:
+        return t.encode('cp1252').decode('utf-8')
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return t
+
+
+# só os textos livres (empresa/garagem) passam pelo reparo; o filtro evita chamar o Python nos demais registros
+SUSPEITO_MOJIBAKE = r'[ÃÂ][\x{0080}-\x{00BF}\x{0152}\x{0153}\x{0160}\x{0161}\x{0178}\x{017D}\x{017E}\x{0192}\x{02C6}\x{02DC}\x{2013}-\x{203A}\x{20AC}\x{2122}]'  # sintaxe RE2 (DuckDB)
+
+
+def _reparado(expr):
+    return f"CASE WHEN regexp_matches({expr}, '{SUSPEITO_MOJIBAKE}') THEN reparar_utf8({expr}) ELSE {expr} END"
+
+
 def esquema(con, arq):
     return [r[0] for r in con.execute(f"DESCRIBE SELECT * FROM read_csv('{arq}', header=true, all_varchar=true)").fetchall()]
 
@@ -56,6 +75,10 @@ def carregar(con):
     if not arqs:
         raise FileNotFoundError('Nenhum bq-results-*.csv em data/raw')
     partes, esquemas = [], {}
+    try:
+        con.create_function('reparar_utf8', reparar_utf8, ['VARCHAR'], 'VARCHAR', side_effects=False)
+    except duckdb.CatalogException:
+        pass  # já registrada nesta conexão
     for a in arqs:
         cols = esquema(con, a)
         low = {c.lower().strip(): c for c in cols}
@@ -63,7 +86,10 @@ def carregar(con):
         sel = []
         for can, alts in ALIASES.items():
             orig = next((low[x] for x in alts if x in low), None)
-            sel.append(f'{_norm_txt(chr(34) + orig + chr(34))} AS {can}' if orig else f'NULL::VARCHAR AS {can}')
+            expr = _norm_txt(chr(34) + orig + chr(34)) if orig else None
+            if expr and can in ('empresa', 'garagem'):
+                expr = _reparado(expr)
+            sel.append(f'{expr} AS {can}' if expr else f'NULL::VARCHAR AS {can}')
         # linha_csv = número da linha no arquivo original (cabeçalho = linha 1), para rastreabilidade
         partes.append(f"""SELECT '{a.split('/')[-1]}' AS arquivo, row_number() OVER () + 1 AS linha_csv, {', '.join(sel)}
                           FROM read_csv('{a}', header=true, all_varchar=true)""")

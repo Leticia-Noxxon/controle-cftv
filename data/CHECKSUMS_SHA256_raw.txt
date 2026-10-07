@@ -6,3 +6,5 @@ af8e6163dbeaace9ecc8c8b945d3ff9c0cb8fff4c7bf7b7457aa9cd8a13d060e  data/raw/bq-re
 c0c94fb765447316ea6d549918ddaf2212aa828f222d393e1f6751a8d4677cc5  data/raw/bq-results-20260930-020631-1790734004968.csv
 943deab9bc045f530155e50164bc29b01c1c87d8156789859adcddcd32b9fb09  data/raw/garagens/Revisão_CFTV2026-09-30_07_52_29.xlsx
 3a1b4c7b5ac031d77eeb4de7038fe0a46f9660df13b130cd8aa7f4dd894d1f2c  data/raw/garagens/jotform_responses.xlsx
+a94c18210295e70a006dd473e4668a32c0acb1bcd45f523257d27be12b2db40f  data/raw/originais/cftv_28-09_ate-05-10(1).xlsx
+3bcccc80d9450a21d84bcfb5e1e2a488a526fe771b97d9005623069b097ccd30  data/raw/bq-results-20261005-142450-1791_xlsx_cftv_28-09_ate-05-10.csv

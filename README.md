@@ -49,7 +49,7 @@ Duas páginas, sem recarregar (rota por `#`):
 2. A coleta é **aproximadamente horária** (mediana entre registros 60,1 min; 96 % dos intervalos entre 55 e 65 min). Cada registro vale **do seu horário até o próximo registro da mesma câmera**, se o próximo vier em até **65 min**; se vier depois (ou não houver próximo), o registro vale só **60 min** e o resto fica **Sem dados**. O último registro não passa do fim da extração. Intervalos que atravessam a meia-noite são divididos entre os dois dias (por isso o dia pode começar com o último registro do dia anterior).
 3. Intervalos consecutivos com o mesmo estado e sem lacuna são unidos; mudança de estado ou lacuna inicia outro trecho. Lacunas = Sem dados (cinza).
 4. Início/fim mostram o horário do registro (HH:mm); as durações são arredondadas a 5 min, porque a resolução da fonte é de ~1 h — um trecho não indica o minuto exato da mudança, só que ela ocorreu entre dois registros.
-5. Em dias parciais da extração (31/08, 14/09, 15/09 e 28/09) o horário fora da extração aparece como Sem dados e o painel avisa.
+5. Em dias parciais da extração (31/08, 14/09, 15/09, 02/10, 03/10, 04/10 e 05/10) o horário fora da extração aparece como Sem dados e o painel avisa.
 
 ### Texto de manutenção no painel
 Quebras `<br>`/linhas/`;` viram itens; removem-se marcadores, linhas vazias, frases padrão (“Nenhuma anomalia identificada”, “Nenhuma ação realizada”) e repetições. Nada é reescrito: números de câmera, componentes, cabo, SD, UCP, TDM etc. ficam como o técnico escreveu. **Ação** prioriza a observação final do técnico; se não houver, usa as ações marcadas no formulário. Linhas longas são cortadas com “…” (o texto completo fica em “Ver registro completo”).
@@ -168,6 +168,7 @@ https://leticia-noxxon.github.io/controle-cftv/ (raiz) tem identidade visual pr�
 | Arquivo | O que é | Uso |
 |---|---|---|
 | `bq-results-20260928-132402-….csv` (01–14/09 UTC), `bq-results-20260928-132836-….csv` (16–24/09 UTC) e `bq-results-20260930-020631-….csv` (25–28/09 UTC) | Monitoramento horário exportado do BigQuery (um registro por câmera ≈ a cada hora) | Cards, tabela, linha do tempo, estatísticas, duração dos problemas, antes/depois das manutenções |
+| `cftv_28-09_ate-05-10(1).xlsx` (aba `bq-results-20261005-142450-1791`; 29/09 00:00 a 05/10 14:24 UTC) | Mesma exportação do BigQuery (13 colunas), **salva como .xlsx**. Convertida sem alterar valores por `scripts/converter_xlsx_bq.py` em `data/raw/bq-results-20261005-142450-1791_xlsx_cftv_28-09_ate-05-10.csv` (linha do CSV = linha da planilha); o .xlsx original fica em `data/raw/originais/`. **Incompleta**: a planilha tem 1.048.576 linhas, o limite do Excel (ver “Datas e horários”) | Idem |
 | `Revisão_CFTV2026-09-11_13_40_20.xlsx` | **Formulário de manutenção** (uma linha por visita) | Manutenções |
 | `Relatório CFTV - 28.09.2026.xlsx` | **Relatório CFTV diário de 28/09/2026** (retrato consolidado do dia, por prefixo) | Verificado como fonte de garagem (não tem a coluna) |
 
@@ -192,23 +193,24 @@ Os arquivos brutos **não são versionados** (ficam em `data/raw/`, ignorado pel
 
 ### Datas e horários
 - O `timestamp` do BigQuery está em **UTC**; tudo foi convertido para **horário de Brasília (UTC−3)** e a data de cada registro é a data em Brasília.
-- Período disponível: **31/08/2026 21:00 a 28/09/2026 20:59** (Brasília), **29 datas**. Dias parciais: 31/08 (só 21h–23h59), 14/09 (até 20h59), **15/09 (só 21h–23h59 — o dia 15/09 UTC não está em nenhuma exportação)** e 28/09 (até 20h59). O novo CSV fecha a lacuna de 24/09 21h em diante (24/09 agora tem 24 h).
+- Período disponível: **31/08/2026 21:00 a 05/10/2026 11:24** (Brasília), **36 datas**. Dias parciais: 31/08 (só 21h–23h59), 14/09 (até 20h59), **15/09 (só 21h–23h59 — o dia 15/09 UTC não está em nenhuma exportação)**, 02/10 (até 20h59), **03/10 (só 21h–23h59 — o dia 03/10 UTC não está na exportação)**, 04/10 (sem registros das 6h, 9h e 12h–17h; 5h, 7h, 8h, 10h, 11h e 18h incompletas) e 05/10 (até 11h24). 28/09 agora tem 24 h.
+- **Exportação de 29/09 a 05/10 incompleta (xlsx):** o arquivo tem exatamente 1.048.576 linhas (limite do Excel), ou seja, o CSV do BigQuery foi aberto no Excel e cortado. De 29/09 a 02/10 há ~175 mil registros/dia de ~4.400 prefixos (um dia completo tem ~390 mil de ~5.250), com ~2/3 das câmeras e ~16 registros por câmera/dia; 04/10 e 05/10 têm quase todas as câmeras. O que falta aparece como **Sem dados** (nunca offline); em dias com câmeras faltando, a cor do veículo considera só as câmeras com registro. Para completar o período, é preciso o CSV original `bq-results-20261005-142450-….csv` (ou uma nova exportação); basta colocá-lo em `data/raw/` e rodar a atualização (a deduplicação descarta o que já existe).
 - As colunas de data são as datas distintas dos registros (verificadas como ordenadas e sem repetição no script).
 - Horário da manutenção = campo **“Data”** do formulário (ex.: “quarta-feira, setembro 16, 2026 03:11”), assumido como horário de Brasília. “Data de Envio” é só o envio (em 3 casos, no dia seguinte).
 
 ### Normalização e deduplicação
-- Camada de normalização (`ALIASES` em `scripts/pipeline/monitoramento.py`): cada CSV é lido pelo nome das colunas, aceitando nomes alternativos (ex.: `prefixo`/`prefixo_veiculo`, `data_hora`/`timestamp`, `camera`/`id_camera`); textos com trim e espaços colapsados; `''`, `-`, `N/A`, `null`, `undefined` = vazio; status/SD/login/gravação em minúsculas; prefixo e câmera numéricos; timestamp UTC → Brasília. O novo CSV tem **o mesmo esquema** (13 colunas) dos anteriores.
+- Camada de normalização (`ALIASES` em `scripts/pipeline/monitoramento.py`): cada CSV é lido pelo nome das colunas, aceitando nomes alternativos (ex.: `prefixo`/`prefixo_veiculo`, `data_hora`/`timestamp`, `camera`/`id_camera`); textos com trim e espaços colapsados; `''`, `-`, `N/A`, `null`, `undefined` = vazio; status/SD/login/gravação em minúsculas; prefixo e câmera numéricos; timestamp UTC → Brasília. Empresa/garagem com acentuação corrompida por UTF-8 lido como cp1252 (ex.: `TRANS UNIÃƒO`, 812 registros do xlsx) são reparadas (`reparar_utf8`, só quando o reparo é exato). Todas as exportações têm **o mesmo esquema** (13 colunas).
 - **Chave**: prefixo + câmera + data/hora completa. Entre registros com a mesma chave fica: o válido (status reconhecido) → o mais completo (mais campos preenchidos) → o do arquivo exportado mais recente → a última linha.
-- Carga atual: **10.410.827** registros lidos (5.273.675 + 3.569.548 + **1.567.604** do novo CSV) → **225** repetidos removidos (224 chaves, todas duplicatas idênticas dentro do mesmo arquivo; **0 conflitos**; nenhuma sobreposição entre arquivos) → **10.410.602** registros válidos, 5.598 prefixos. Resumo em `data/processed/resumo_atualizacao.json`.
+- Carga atual: **11.459.402** registros lidos (5.273.675 + 3.569.548 + 1.567.604 + **1.048.575** do xlsx de 29/09–05/10) → **281** repetidos removidos (280 chaves, todas duplicatas idênticas dentro do mesmo arquivo, 56 delas no xlsx; **0 conflitos**; nenhuma sobreposição entre arquivos) → **11.459.121** registros válidos, 5.616 prefixos (18 novos no xlsx). Resumo em `data/processed/resumo_atualizacao.json`.
 
 ### Limpeza
-- 52 prefixos aparecem com mais de uma empresa no período: exibida a empresa do registro mais recente (as demais aparecem no detalhe do veículo).
+- 55 prefixos aparecem com mais de uma empresa no período: exibida a empresa do registro mais recente (as demais aparecem no detalhe do veículo).
 - Latitude/longitude estão vazias em todo o arquivo (não usadas).
 - Formulário: 1.003 linhas, das quais **324 estão no layout antigo (colunas deslocadas uma posição, sem “Data de Envio”)** e são **cópias idênticas** de respostas já presentes → descartadas. Restam **679 formulários** de 595 prefixos (20/08 a 28/09/2026). A coluna “IP do Envio” não é publicada.
 - Técnicos: nomes que diferem só por maiúsculas/minúsculas são unificados (ex.: “Abner melo” → “Abner Melo”).
 
 ### Situação atual
-- Estado do **último registro** de cada câmera no período (período completo: 17.871 câmeras — 14.145 funcionais, 1.326 com erro de SD, 2.400 offline).
+- Estado do **último registro** de cada câmera no período (período completo: 17.928 câmeras — 14.224 funcionais, 1.313 com erro de SD, 2.391 offline; 16.678 delas com último registro em 05/10).
 
 ### Problemas em aberto (duração)
 - **Dia com problema** = pelo menos um registro offline ou com erro no dia.
@@ -219,7 +221,7 @@ Os arquivos brutos **não são versionados** (ficam em `data/raw/`, ignorado pel
 
 ### Manutenções: precisava? resolveu?
 - **Visita** = formulários do mesmo prefixo no mesmo dia (679 formulários → 661 visitas).
-- **Precisava?** Sim = algum registro offline/erro **do início (00:00) do dia anterior até o horário da visita**; Não = todos os registros online sem erro; Sem dados = nenhum registro nessa janela (visitas de agosto, anteriores ao início do monitoramento; visitas depois de 28/09 20:59; prefixos fora do monitoramento).
+- **Precisava?** Sim = algum registro offline/erro **do início (00:00) do dia anterior até o horário da visita**; Não = todos os registros online sem erro; Sem dados = nenhum registro nessa janela (visitas de agosto, anteriores ao início do monitoramento; visitas depois de 05/10 11:24; prefixos fora do monitoramento).
 - **Depois** = registros após o horário da visita até a próxima visita do mesmo prefixo ou o fim dos dados.
 - Calculado no script e gravado em `data/processed/manutencoes_completo.json` e `manutencoes_eventos.csv`.
 - Resultado (considerando as câmeras com problema antes): **Resolvido** (todas tiveram registro online sem erro depois e não voltaram a falhar), **Resolvido com recorrência** (normalizaram, mas voltaram a falhar — mesmo que em um único registro; o tempo até voltar e o nº de registros aparecem no detalhe), **Parcialmente resolvido**, **Não resolvido**, **Sem problema antes**, **Sem dados para avaliar**.
@@ -245,6 +247,7 @@ Backend no **Supabase** (projeto `controle-cftv`, região São Paulo, plano grat
 ## Estrutura
 
 ```
+scripts/converter_xlsx_bq.py    # exportação do BigQuery salva como .xlsx -> CSV no layout bq-results (sem alterar valores)
 scripts/atualizar_dados.py      # script único: lê data/raw e gera site/public/data + data/processed (--reusar reaproveita a carga no DuckDB)
 scripts/pipeline/               # config, monitoramento (DuckDB: normalização, dedupe, intervalos, trechos), garagens, manutencao, analise
 site/oficial/                   # SITE OFICIAL (raiz), congelado: index.html + src/ (mesma estrutura de site/v2)
@@ -275,6 +278,7 @@ No navegador: índices por empresa/câmera/prefixo, filtros memorizados e rolage
 ```bash
 python -m venv venv && . venv/bin/activate && pip install -r requirements.txt
 # copie os novos arquivos para data/raw/ (bq-results-*.csv, Revisão_CFTV*.xlsx, Relatório CFTV*.xlsx)
+# exportação do BigQuery salva como .xlsx: python scripts/converter_xlsx_bq.py ARQ.xlsx data/raw/bq-results-<AAAAMMDD-HHMMSS-…>.csv
 python scripts/atualizar_dados.py          # ~3 min; gera site/public/data (raiz e /v1/) e site/public/os.json;, usa DuckDB (limite de memória em scripts/pipeline/config.py)
 python -m pytest -q tests/test_regras.py
 cd site && npm ci && npm run build          # dist/ = site oficial (site/v2) + dist/v1 (backup); npm run dev para ver localmente

@@ -196,7 +196,8 @@ with sync_playwright() as p:
     m = {k: num(total(pg, k)) for k in ['ma', 'mr', 'mp', 'ms', 'mi']}
     print('      manutenção (total):', m)
     ok(cabecalhos(pg)[-5:] == ['Atendidos', 'Reincidências', 'Procedentes', 'Solucionados', 'Improcedentes'], 'cabeçalhos curtos de manutenção')
-    ok((m['ma'], m['mr'], m['mp'], m['ms']) == (595, 64, 282, 71), 'totais de manutenção 595 / 64 / 282 / 71')
+    # retrato dos dados de 31/08 a 05/10/2026 11:24 (Solucionados depende do monitoramento depois da visita: era 71 com dados até 28/09)
+    ok((m['ma'], m['mr'], m['mp'], m['ms']) == (595, 64, 282, 74), 'totais de manutenção 595 / 64 / 282 / 74')
     ok(0 < m['mi'] <= m['ma'] - m['mp'], f'Improcedentes coerente ({m["mi"]})')
     ok(all(pg.get_attribute(f'#v-tabela th[data-o="{k}"]', 'data-tip') for k in ['ma', 'mr', 'mp', 'ms', 'mi']), 'dicas nos cabeçalhos de manutenção')
     ok('MANUTENÇÃO' in pg.inner_text('#v-tabela .tr-grupo').upper(), 'grupo Manutenção')
@@ -237,8 +238,14 @@ with sync_playwright() as p:
 
     # calendário
     pg.click('#f-periodo-btn'); pg.wait_for_selector('#cal-pop')
-    ok('Setembro de 2026' in pg.inner_text('#cal-pop .cal-cab') and pg.inner_text('#cal-pop .cal-sem').replace('\n', '') == 'DSTQQSS', 'calendário em pt-BR')
+    MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+    ult = meta['dias'][-1]
+    mes_ult = f"{MESES[int(ult[5:7]) - 1]} de {ult[:4]}"
+    ok(mes_ult in pg.inner_text('#cal-pop .cal-cab') and pg.inner_text('#cal-pop .cal-sem').replace('\n', '') == 'DSTQQSS', f'calendário em pt-BR, aberto no mês do último dado ({mes_ult})')
     livres = pg.query_selector_all('#cal-pop .cal-d:not([disabled])')
+    if len(livres) < 7:   # mês com poucos dias de dados: o intervalo é testado no mês anterior
+        pg.click('#cal-pop .cal-nav[data-n="-1"]'); pg.wait_for_timeout(150)
+        livres = pg.query_selector_all('#cal-pop .cal-d:not([disabled])')
     livres[-7].click(); pg.wait_for_timeout(150)
     ok('escolha o fim' in pg.inner_text('#cal-pop .cal-dica'), 'primeiro clique marca o início')
     pg.hover('#cal-pop .cal-d:not([disabled]) >> nth=-3')

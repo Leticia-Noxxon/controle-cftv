@@ -106,6 +106,32 @@ def test_deduplicacao_e_esquema_alternativo(tmp_path, monkeypatch):
     assert [r[0] for r in rows] == [7, 8, 9]                                        # UTC -> Brasília
 
 
+def test_reparo_acentuacao_corrompida_e_xlsx(tmp_path, monkeypatch):
+    # export do BigQuery aberto no Excel (UTF-8 lido como cp1252): 'TRANS UNIÃO' vira 'TRANS UNIÃƒO'; nomes corretos não mudam
+    a = CAB + ('2026-10-01 10:00:00 UTC,1,100,9,TRANS UNIÃƒO,1001,s,,,online,ok,ok,ok\n'
+               '2026-10-01 11:00:00 UTC,1,100,9,TRANS UNIÃO,1001,s,,,online,ok,ok,ok\n'
+               '2026-10-01 12:00:00 UTC,2,200,9,SÃO PAULO,1001,s,,,online,ok,ok,ok\n')
+    con = _con_com(tmp_path, monkeypatch, {'bq-results-20261005-000000-1.csv': a})
+    monitoramento.carregar(con)
+    assert [r[0] for r in con.execute('SELECT empresa FROM registros ORDER BY ts_utc').fetchall()] == ['TRANS UNIÃO', 'TRANS UNIÃO', 'SÃO PAULO']
+
+
+def test_converter_xlsx_bq(tmp_path):
+    import openpyxl
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
+    import converter_xlsx_bq
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(CAB.strip().split(','))
+    ws.append(['2026-10-01 10:00:00.1 UTC', 1770155060789, 100, 9, 'VIA SUDESTE ', 1001, 29070, None, None, 'online', 'ok', 'ok', 'ok'])
+    ws.append(['2026-10-01 11:00:00 UTC', 1, 100, 9, 'EMP & <X>', 1002, 1, None, None, 'offline', None, None, None])
+    wb.save(tmp_path / 'x.xlsx')
+    assert converter_xlsx_bq.converter(tmp_path / 'x.xlsx', tmp_path / 'x.csv') == 3
+    assert (tmp_path / 'x.csv').read_text(encoding='utf-8').splitlines()[1:] == [
+        '2026-10-01 10:00:00.1 UTC,1770155060789,100,9,VIA SUDESTE ,1001,29070,,,online,ok,ok,ok',
+        '2026-10-01 11:00:00 UTC,1,100,9,EMP & <X>,1002,1,,,offline,,,']
+
+
 def test_intervalos_lacuna_e_meia_noite(tmp_path, monkeypatch):
     # 22:30, 23:30 BRT (=01:30, 02:30 UTC) e 03:30 BRT do dia seguinte (lacuna de 4 h)
     a = CAB + ('2026-09-26 01:30:00 UTC,1,100,9,E,1001,s,,,online,ok,ok,ok\n'
